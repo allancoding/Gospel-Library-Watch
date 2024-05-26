@@ -3,8 +3,6 @@ agp = "8.4.1"
 kotlin = "1.9.0"
 playServicesWearable = "18.1.0"
 composeBom = "2024.05.00"
-composeMaterial = "1.3.1"
-composeFoundation = "1.3.1"
 activityCompose = "1.9.0"
 coreSplashscreen = "1.0.1"
 tiles = "1.3.0"
@@ -16,6 +14,10 @@ horologistComposables = "0.6.12"
 horologistComposeLayout = "0.6.12"
 horologistComposeMaterial = "0.6.12"
 materialIconsExtended = "1.7.0-beta01"
+preference = "1.2.1"
+preferenceKtx = "1.2.1"
+wearToolingPreview = "1.0.0"
+klaxon = "5.6"
 
 [libraries]
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
@@ -36,8 +38,11 @@ horologist-tiles = { group = "com.google.android.horologist", name = "horologist
 horologist-composables = { group = "com.google.android.horologist", name = "horologist-composables", version.ref = "horologistComposables" }
 horologist-compose-layout = { group = "com.google.android.horologist", name = "horologist-compose-layout", version.ref = "horologistComposeLayout" }
 horologist-compose-material = { group = "com.google.android.horologist", name = "horologist-compose-material", version.ref = "horologistComposeMaterial" }
-watchface-complications-data-source-ktx = { group = "androidx.wear.watchface", name = "watchface-complications-data-source-ktx", version.ref = "watchfaceComplicationsDataSourceKtx" }
 material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIconsExtended" }
+preference = { group = "androidx.preference", name = "preference", version.ref = "preference" }
+preference-ktx = { group = "androidx.preference", name = "preference-ktx", version.ref = "preferenceKtx" }
+wear-tooling-preview = { group = "androidx.wear", name = "wear-tooling-preview", version.ref = "wearToolingPreview" }
+klaxon = { group = "com.beust", name = "klaxon", version.ref = "klaxon" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

@@ -12,7 +12,7 @@ android {
         minSdk = 30
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.3"
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -46,7 +46,6 @@ android {
 }
 
 dependencies {
-
     implementation(libs.play.services.wearable)
     implementation(platform(libs.compose.bom))
     implementation(libs.ui)
@@ -62,10 +61,9 @@ dependencies {
     implementation(libs.horologist.composables)
     implementation(libs.horologist.compose.layout)
     implementation(libs.horologist.compose.material)
-    implementation(libs.watchface.complications.data.source.ktx)
     implementation(libs.material.icons.extended)
-    androidTestImplementation(platform(libs.compose.bom))
-    androidTestImplementation(libs.ui.test.junit4)
+    implementation(libs.preference.ktx)
+    implementation(libs.klaxon)
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
 }

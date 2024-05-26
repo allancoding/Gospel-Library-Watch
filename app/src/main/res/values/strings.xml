@@ -8,6 +8,11 @@
     <string name="Settings">Settings</string>
     <string name="Scriptures">Scriptures</string>
     <string name="English">English</string>
+    <string name="Default">Default</string>
+    <string-array name="languages_array">
+        <item>@string/English</item>
+        <item>@string/Default</item>
+    </string-array>
     <string name="Version">Version:</string>
     <string name="Copyright">Copyright:</string>
     <string name="copyright">© 2024 Allancoding - App\n© 2024 by Intellectual Reserve, Inc. All rights reserved. - The Standard Works</string>
