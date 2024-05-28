@@ -3,6 +3,7 @@ package dev.allancoding.gospellibrary.presentation
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
@@ -46,7 +47,8 @@ import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
 import androidx.wear.compose.ui.tooling.preview.WearPreviewDevices
-import com.beust.klaxon.Klaxon
+import com.jayway.jsonpath.ReadContext
+import com.jayway.jsonpath.JsonPath
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScalingLazyColumn
 import com.google.android.horologist.compose.layout.ScalingLazyColumnDefaults
@@ -61,13 +63,6 @@ import com.google.android.horologist.compose.material.ResponsiveListHeader
 import dev.allancoding.gospellibrary.R
 import dev.allancoding.gospellibrary.presentation.theme.GospelLibraryTheme
 import androidx.compose.ui.platform.LocalContext
-
-data class Volume(val _id: String, val title: String, val books: List<Book>)
-data class Book(val _id: String, val title: String, val chapters: List<Chapter>)
-data class Chapter(val _id: String, val chapter: ChapterDetails)
-data class ChapterDetails(val number: Int, val verses: List<Verse>)
-data class Verse(val text: String)
-data class JsonStructure(val volumes: List<Volume>)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -87,26 +82,35 @@ fun settingsGetValue(sharedPreferences: SharedPreferences, key: String, defaultV
 fun settingsSetValue(sharedPreferences: SharedPreferences, key: String, value: Any) {
     sharedPreferences.edit().putString(key, value.toString()).apply()
 }
-fun getVerse(context: Context, bookTitle: String, chapterNumber: Int, verseIndex: Int): String? {
-    val jsonContent = context.assets.open("scriptures.json").bufferedReader().use { it.readText() }
-    val result = Klaxon().parse<JsonStructure>(jsonContent)
 
-    result?.let { jsonStructure ->
-        jsonStructure.volumes.forEach { volume ->
-            volume.books.forEach { book ->
-                if (book.title.equals(bookTitle, ignoreCase = true)) {
-                    book.chapters.forEach { chapter ->
-                        if (chapter.chapter.number == chapterNumber) {
-                            if (verseIndex >= 0 && verseIndex < chapter.chapter.verses.size) {
-                                return chapter.chapter.verses[verseIndex].text
-                            }
-                        }
-                    }
-                }
+fun getJson(context: Context, path: String, file: String, type: Int): Any? {
+    val jsonContent = context.assets.open("scriptures/$file").bufferedReader().use { it.readText() }
+    val jsonContext: ReadContext = JsonPath.parse(jsonContent)
+    return try {
+        when (type) {
+            0 -> {
+                jsonContext.read<String>(path)
+            }
+            1 -> {
+                jsonContext.read<Int>(path)
+            }
+            2 -> {
+                val array: List<Any> = jsonContext.read(path)
+                array.size
+            }
+            else -> {
+                jsonContext.read<String>(path)
             }
         }
+
+    } catch (e: Exception) {
+        e.printStackTrace()
+        if (type == 2) {
+            -1
+        } else {
+            null
+        }
     }
-    return null
 }
 
 @Composable
@@ -242,14 +246,17 @@ fun ListBooksScreen(context: Context) {
                 .fillMaxSize()
         ) {
             item {
-
                 ResponsiveListHeader(contentPadding = firstItemPadding()) {
                     Text(text = stringResource(R.string.Scriptures), fontSize = 18.sp)
                 }
             }
             item {
-                TitleCard(title = { Text("Verse") }, onClick = { }) {
-                    Text(getVerse(context, "Genesis", 1, 0).toString())
+                var i = 0
+                while (i < getJson(context, "$.volumes","volumes.json", 2).toString().toInt()) {
+                    TitleCard(title = { Text(getJson(context, "$.volumes[$i].title","volumes.json", 0).toString()) }, onClick = { }) {
+                        Log.d("json", i.toString())
+                    }
+                    i++
                 }
             }
         }

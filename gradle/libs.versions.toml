@@ -18,6 +18,7 @@ preference = "1.2.1"
 preferenceKtx = "1.2.1"
 wearToolingPreview = "1.0.0"
 klaxon = "5.6"
+jsonPath = "2.9.0"
 
 [libraries]
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
@@ -43,6 +44,7 @@ preference = { group = "androidx.preference", name = "preference", version.ref =
 preference-ktx = { group = "androidx.preference", name = "preference-ktx", version.ref = "preferenceKtx" }
 wear-tooling-preview = { group = "androidx.wear", name = "wear-tooling-preview", version.ref = "wearToolingPreview" }
 klaxon = { group = "com.beust", name = "klaxon", version.ref = "klaxon" }
+json-path = { group = "com.jayway.jsonpath", name = "json-path", version.ref = "jsonPath" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

@@ -63,7 +63,7 @@ dependencies {
     implementation(libs.horologist.compose.material)
     implementation(libs.material.icons.extended)
     implementation(libs.preference.ktx)
-    implementation(libs.klaxon)
+    implementation(libs.json.path)
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
 }
