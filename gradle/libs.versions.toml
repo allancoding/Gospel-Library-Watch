@@ -1,24 +1,26 @@
 [versions]
 agp = "8.4.1"
 kotlin = "1.9.0"
-playServicesWearable = "18.1.0"
+playServicesWearable = "18.2.0"
 composeBom = "2024.05.00"
 activityCompose = "1.9.0"
 coreSplashscreen = "1.0.1"
 tiles = "1.3.0"
 tilesMaterial = "1.3.0"
-horologistComposeTools = "0.6.12"
-horologistTiles = "0.6.12"
+horologistComposeTools = "0.6.13"
+horologistTiles = "0.6.13"
 watchfaceComplicationsDataSourceKtx = "1.2.1"
-horologistComposables = "0.6.12"
-horologistComposeLayout = "0.6.12"
-horologistComposeMaterial = "0.6.12"
-materialIconsExtended = "1.7.0-beta01"
+horologistComposables = "0.6.13"
+horologistComposeLayout = "0.6.13"
+horologistComposeMaterial = "0.6.13"
+materialIconsExtended = "1.7.0-beta02"
 preference = "1.2.1"
 preferenceKtx = "1.2.1"
 wearToolingPreview = "1.0.0"
 klaxon = "5.6"
 jsonPath = "2.9.0"
+navigationCompose = "2.7.7"
+coreSplashscreenVersion = "1.2.0-alpha01"
 
 [libraries]
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
@@ -26,10 +28,10 @@ compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = 
 ui = { group = "androidx.compose.ui", name = "ui" }
 ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version = "1.7.0-beta01" }
+ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version = "1.7.0-beta02" }
 ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
-compose-material = { group = "androidx.wear.compose", name = "compose-material", version = "1.4.0-beta01" }
-compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version = "1.4.0-beta01" }
+compose-material = { group = "androidx.wear.compose", name = "compose-material", version = "1.4.0-beta02" }
+compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version = "1.4.0-beta02" }
 activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreen" }
 tiles = { group = "androidx.wear.tiles", name = "tiles", version.ref = "tiles" }
@@ -45,6 +47,8 @@ preference-ktx = { group = "androidx.preference", name = "preference-ktx", versi
 wear-tooling-preview = { group = "androidx.wear", name = "wear-tooling-preview", version.ref = "wearToolingPreview" }
 klaxon = { group = "com.beust", name = "klaxon", version.ref = "klaxon" }
 json-path = { group = "com.jayway.jsonpath", name = "json-path", version.ref = "jsonPath" }
+navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreenVersion" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

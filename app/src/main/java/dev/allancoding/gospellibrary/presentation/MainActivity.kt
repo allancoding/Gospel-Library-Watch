@@ -3,9 +3,9 @@ package dev.allancoding.gospellibrary.presentation
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,7 +41,6 @@ import androidx.wear.compose.material.Picker
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
-import androidx.wear.compose.material.TitleCard
 import androidx.wear.compose.material.rememberPickerState
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
@@ -62,7 +61,13 @@ import com.google.android.horologist.compose.material.ListHeaderDefaults.firstIt
 import com.google.android.horologist.compose.material.ResponsiveListHeader
 import dev.allancoding.gospellibrary.R
 import dev.allancoding.gospellibrary.presentation.theme.GospelLibraryTheme
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -128,7 +133,42 @@ fun WearApp(settings: SharedPreferences, context: Context) {
             }
             composable("list") {
                 AppScaffold(timeText = true) {
-                    ListBooksScreen(context)
+                    ListBooksScreen(context, onShowListBooks = { bookId ->
+                        navController.navigate("books/$bookId")
+                    }, onShowListChapters = { bookId, chapterId ->
+                        navController.navigate("books/$bookId/$chapterId")
+                    })
+                }
+            }
+            composable("books/{bookId}") { backStackEntry ->
+                val bookId = backStackEntry.arguments?.getString("bookId")
+                AppScaffold(timeText = true) {
+                    if (bookId != null) {
+                        ListBooks(context, bookId, onShowListChapters = { bookId, chapterId ->
+                            navController.navigate("books/$bookId/$chapterId")
+                        })
+                    }
+                }
+            }
+            composable("books/{bookId}/{chapterId}") { backStackEntry ->
+                val bookId = backStackEntry.arguments?.getString("bookId")
+                val chapterId = backStackEntry.arguments?.getString("chapterId")
+                AppScaffold(timeText = true) {
+                    if (bookId != null && chapterId != null) {
+                        ListChapters(context, bookId, chapterId, onShowRead = { volumeId, bookId, chapterId ->
+                            navController.navigate("books/$volumeId/$bookId/$chapterId")
+                        })
+                    }
+                }
+            }
+            composable("books/{volumeId}/{bookId}/{chapterId}") { backStackEntry ->
+                val volumeId = backStackEntry.arguments?.getString("volumeId")
+                val bookId = backStackEntry.arguments?.getString("bookId")
+                val chapterId = backStackEntry.arguments?.getString("chapterId")
+                AppScaffold(timeText = false) {
+                    if (volumeId != null && bookId != null && chapterId != null) {
+                        ReadChapter(context, volumeId, bookId, chapterId)
+                    }
                 }
             }
             composable("settings") {
@@ -172,7 +212,6 @@ fun AppScaffold(
         content()
     }
 }
-
 
 @Composable
 fun Home() {
@@ -232,11 +271,11 @@ fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit) {
 
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
-fun ListBooksScreen(context: Context) {
+fun ListBooksScreen(context: Context, onShowListBooks: (volumes: String) -> Unit, onShowListChapters: (volume: String, books: String) -> Unit) {
     val columnState = rememberResponsiveColumnState(
         contentPadding = ScalingLazyColumnDefaults.padding(
             first = ItemType.Text,
-            last = ItemType.SingleButton
+            last = ItemType.Chip
         )
     )
     ScreenScaffold(scrollState = columnState) {
@@ -250,17 +289,202 @@ fun ListBooksScreen(context: Context) {
                     Text(text = stringResource(R.string.Scriptures), fontSize = 18.sp)
                 }
             }
-            item {
-                var i = 0
-                while (i < getJson(context, "$.volumes","volumes.json", 2).toString().toInt()) {
-                    TitleCard(title = { Text(getJson(context, "$.volumes[$i].title","volumes.json", 0).toString()) }, onClick = { }) {
-                        Log.d("json", i.toString())
+            for (i in 0..<getJson(context, "$.volumes","volumes.json", 2).toString().toInt()) {
+                item {
+                    var background = R.drawable.scriptures_cover
+                    when (i) {
+                        0 -> {
+                            background = R.drawable.scriptures_old_testament
+                        }
+                        1 -> {
+                            background = R.drawable.scriptures_new_testament
+                        }
+                        2 -> {
+                            background = R.drawable.scripture_cover_book_mormon
+                        }
+                        3 -> {
+                            background = R.drawable.scriptures_doctrine_and_covenants
+                        }
+                        4 -> {
+                            background = R.drawable.scriptures_pearl_of_great_price
+                        }
                     }
-                    i++
+                    Chip(label = {
+                        Text(
+                            text = getJson(context, "$.volumes[$i].title","volumes.json", 0).toString(),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }, modifier = Modifier.fillMaxSize() ,colors = ChipDefaults.imageBackgroundChipColors(
+                        backgroundImagePainter = painterResource(id = background)
+                    ), onClick = {
+                        if (i == 3) {
+                            onShowListChapters(getJson(context, "$.volumes[$i]['_id']","volumes.json", 0).toString(), "doctrineandcovenants")
+                        } else {
+                            onShowListBooks(getJson(context, "$.volumes[$i]['_id']","volumes.json", 0).toString())
+                        }
+                    })
                 }
             }
         }
     }
+}
+@OptIn(ExperimentalHorologistApi::class)
+@Composable
+fun ListBooks(context: Context, volume: String, onShowListChapters: (volume: String, books: String) -> Unit){
+    val columnState = rememberResponsiveColumnState(
+        contentPadding = ScalingLazyColumnDefaults.padding(
+            first = ItemType.Text,
+            last = ItemType.Chip
+        )
+    )
+    ScreenScaffold(scrollState = columnState) {
+        ScalingLazyColumn(
+            columnState = columnState,
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            item {
+                ResponsiveListHeader(contentPadding = firstItemPadding()) {
+                    Text(text = getJson(context, "$.titleOfficial","$volume.json", 0).toString(), fontSize = 18.sp, textAlign = TextAlign.Center)
+                }
+            }
+            for (i in 0..<getJson(context, "$.books","$volume.json", 2).toString().toInt()) {
+                item {
+                    Chip(label = {
+                        Text(text = getJson(context, "$.books[$i].title","$volume.json", 0).toString())
+                    }, modifier = Modifier.fillMaxSize(), colors = ChipDefaults.secondaryChipColors(), onClick = { onShowListChapters(volume, getJson(context, "$.books[$i]['_id']", "$volume.json", 0).toString()) })
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalHorologistApi::class)
+@Composable
+fun ListChapters(context: Context, volume: String, book: String, onShowRead: (volume: String, books: String, chapter: String) -> Unit){
+    val columnState = rememberResponsiveColumnState(
+        contentPadding = ScalingLazyColumnDefaults.padding(
+            first = ItemType.Text,
+            last = ItemType.Chip
+        ),
+        verticalArrangement = Arrangement.spacedBy(space = 0.dp, alignment = Alignment.Top),
+    )
+    ScreenScaffold(scrollState = columnState) {
+        ScalingLazyColumn(
+            columnState = columnState,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            item {
+                ResponsiveListHeader(contentPadding = firstItemPadding()) {
+                    Text(text = getJson(context, "$.title","$volume/$book.json", 0).toString(), fontSize = 18.sp, textAlign = TextAlign.Center)
+                }
+            }
+            val type = getJson(context, "$.chapterDelineation","$volume/$book.json", 0).toString()
+            if (type == "Chapter" || type == "Section") {
+                val numberOfItems = getJson(context, "$.chapters","$volume/$book.json", 2).toString().toInt()
+                val itemsPerRow = 5
+                val numberOfRows = (numberOfItems + itemsPerRow - 1) / itemsPerRow
+
+                for (rowIndex in 0 until numberOfRows) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(0.dp)
+                                .height(47.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            for (colIndex in 0 until itemsPerRow) {
+                                val itemIndex = rowIndex * itemsPerRow + colIndex
+                                if (itemIndex < numberOfItems) {
+                                    val padding = when (itemIndex.toString().length) {
+                                        1 -> 10.dp
+                                        2 -> 8.dp
+                                        3 -> 5.dp
+                                        else -> 0.dp
+                                    }
+                                    CompactChip(
+                                        label = { Text((itemIndex + 1).toString(), fontSize = 11.sp) },
+                                        modifier = Modifier.padding(0.dp),
+                                        contentPadding = PaddingValues(padding),
+                                        colors = ChipDefaults.secondaryChipColors(),
+                                        onClick = { onShowRead(volume, book, getJson(context, "$.chapters[$itemIndex]['_id']", "$volume/$book.json", 0).toString()) }
+                                    )
+                                } else {
+                                    Spacer(modifier = Modifier.width(31.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (type == "Page") {
+                for (i in 0..<getJson(context, "$.pages","$volume/$book.json", 2).toString().toInt()) {
+                    item {
+                        val chapter = getJson(context, "$.pages[$i]['_id']","$volume/$book.json", 0).toString()
+                        Chip(label = {
+                            Text(text = getJson(context, "$.chapter.title","$volume/$book/$chapter.json", 0).toString())
+                        }, modifier = Modifier
+                            .fillMaxSize()
+                            .padding(vertical = 2.dp), colors = ChipDefaults.secondaryChipColors(), onClick = { onShowRead(volume, book, chapter) })
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalHorologistApi::class)
+@Composable
+fun ReadChapter(context: Context, volume: String, book: String, chapter: String){
+    val ensign = FontFamily(
+        Font(R.font.mckaybroldslat_regular, FontWeight.Normal),
+        Font(R.font.mckaybroldslat_bold, FontWeight.Bold),
+        Font(R.font.mckaybroldslat_italic, FontWeight.Normal, FontStyle.Italic),
+        Font(R.font.mckaybroldslat_bolditalic, FontWeight.Bold, FontStyle.Italic)
+    )
+    val columnState = rememberResponsiveColumnState(
+        contentPadding = ScalingLazyColumnDefaults.padding(
+            first = ItemType.Text,
+            last = ItemType.Text
+        ),
+    )
+    ScreenScaffold(scrollState = columnState) {
+        ScalingLazyColumn(
+            columnState = columnState,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            val type = getJson(context, "$.chapter.delineation", "$volume/$book/$chapter.json", 0).toString()
+            val number = getJson(context, "$.chapter.number","$volume/$book/$chapter.json", 1).toString().toInt()
+            if (type == "Chapter" || type == "Section") {
+                if (number == 1 && volume == "bookofmormon") {
+                    item {
+                        Text(text = getJson(context, "$.titleOfficial", "$volume/$book.json", 0).toString().uppercase(), fontFamily = ensign, fontSize = 22.sp, modifier = Modifier.align(Alignment.Center))
+                    }
+                }
+                item {
+                    Text(text = "${type.uppercase()} $number", fontFamily = ensign, fontSize = 18.sp)
+                    Spacer(modifier = Modifier.height(25.dp))
+                }
+                item {
+                    Text(text = getJson(context, "$.chapter.summary", "$volume/$book/$chapter.json", 0).toString(), fontFamily = ensign, fontStyle = FontStyle.Italic)
+                }
+            }
+            item {
+                Spacer(modifier = Modifier.height(5.dp))
+            }
+            for (i in 0..<getJson(context, "$.chapter.verses","$volume/$book/$chapter.json", 2).toString().toInt()) {
+                val verse = (i + 1).toString()
+                val spaces = "  ".repeat(verse.length)
+                item {
+                    Text(text = verse, fontFamily = ensign, fontWeight = FontWeight.Bold)
+                    Text(text = "$spaces " + getJson(context, "$.chapter.verses[$i].text","$volume/$book/$chapter.json", 0).toString(), fontFamily = ensign)
+                }
+            }
+        }
+    }
+
 }
 
 @OptIn(ExperimentalHorologistApi::class)
@@ -423,9 +647,56 @@ fun HomeScreenPreview() {
     HomeScreen(onShowBooksList = {}, onShowSettingsList = {})
 }
 
+@OptIn(ExperimentalHorologistApi::class)
 @WearPreviewDevices
 @Composable
-fun ListBooksScreenPreview() {
-    val context = LocalContext.current
-    ListBooksScreen(context)
+fun TestPreview() {
+    val columnState = rememberResponsiveColumnState(
+        verticalArrangement = Arrangement.spacedBy(space = 0.dp, alignment = Alignment.Top),
+    )
+    ScreenScaffold(scrollState = columnState) {
+        ScalingLazyColumn(
+            columnState = columnState,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            item {
+                ResponsiveListHeader(contentPadding = firstItemPadding()) {
+                    Text(text = "Test", fontSize = 18.sp, textAlign = TextAlign.Center)
+                }
+            }
+            val numberOfItems = 130
+            val itemsPerRow = 5
+            val numberOfRows = (numberOfItems + itemsPerRow - 1) / itemsPerRow
+
+            for (rowIndex in 0 until numberOfRows) {
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(0.dp)
+                            .height(47.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        for (colIndex in 0 until itemsPerRow) {
+                            val itemIndex = rowIndex * itemsPerRow + colIndex
+                            val padding = when (itemIndex.toString().length) {
+                                1 -> 10.dp
+                                2 -> 8.dp
+                                3 -> 5.dp
+                                else -> 0.dp
+                            }
+                            CompactChip(
+                                label = { Text((itemIndex + 1).toString(), fontSize = 11.sp) },
+                                modifier = Modifier.padding(0.dp),
+                                contentPadding = PaddingValues(padding),
+                                colors = ChipDefaults.secondaryChipColors(),
+                                onClick = { }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

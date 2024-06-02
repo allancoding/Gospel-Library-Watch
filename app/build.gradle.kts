@@ -52,8 +52,6 @@ dependencies {
     implementation(libs.ui.tooling.preview)
     implementation(libs.compose.material)
     implementation(libs.compose.foundation)
-    implementation(libs.activity.compose)
-    implementation(libs.core.splashscreen)
     implementation(libs.tiles)
     implementation(libs.tiles.material)
     implementation(libs.horologist.compose.tools)
@@ -64,6 +62,8 @@ dependencies {
     implementation(libs.material.icons.extended)
     implementation(libs.preference.ktx)
     implementation(libs.json.path)
+    implementation(libs.navigation.compose)
+    implementation(libs.androidx.core.splashscreen)
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
 }
