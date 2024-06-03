@@ -459,8 +459,52 @@ fun ReadChapter(context: Context, volume: String, book: String, chapter: String)
             val number = getJson(context, "$.chapter.number","$volume/$book/$chapter.json", 1).toString().toInt()
             if (type == "Chapter" || type == "Section") {
                 if (number == 1 && volume == "bookofmormon") {
+                    val subtitle = getJson(context, "$.subtitle", "$volume/$book.json", 0).toString()
+                    val summary = getJson(context, "$.summary", "$volume/$book.json", 0).toString()
                     item {
-                        Text(text = getJson(context, "$.titleOfficial", "$volume/$book.json", 0).toString().uppercase(), fontFamily = ensign, fontSize = 22.sp, modifier = Modifier.align(Alignment.Center))
+                        Text(text = getJson(context, "$.titleOfficial", "$volume/$book.json", 0).toString().uppercase(), fontFamily = ensign, fontSize = 20.sp, textAlign = TextAlign.Center)
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
+                    if (subtitle != "") {
+                        item {
+                            Text(text = subtitle.uppercase(), fontFamily = ensign, fontSize = 12.sp, textAlign = TextAlign.Center)
+                        }
+                    }
+                    item {
+                        Spacer(modifier = Modifier.height(5.dp))
+                    }
+                    if (summary != "") {
+                        item {
+                            Text(text = summary, fontFamily = ensign)
+                        }
+                        item {
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+                    }
+                }
+                if (volume == "bookofmormon") {
+                    val chapterAugmentations = getJson(context, "$.chapter.chapterAugmentations","$volume/$book/$chapter.json", 2).toString().toInt()
+                    if (chapterAugmentations > 0) {
+                        for (i in 0..<chapterAugmentations) {
+                            val text = getJson(context, "$.chapter.chapterAugmentations[$i].text","$volume/$book/$chapter.json", 0).toString()
+                            val subtext = getJson(context, "$.chapter.chapterAugmentations[$i].subtext","$volume/$book/$chapter.json", 0).toString()
+                            if (text != "") {
+                                item {
+                                    Text(text = text, fontFamily = ensign)
+                                }
+                                item {
+                                    Spacer(modifier = Modifier.height(5.dp))
+                                }
+                                if (subtext != "") {
+                                    item {
+                                        Text(text = subtext, fontFamily = ensign, fontStyle = FontStyle.Italic)
+                                    }
+                                    item {
+                                        Spacer(modifier = Modifier.height(5.dp))
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 item {
