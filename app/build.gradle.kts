@@ -25,6 +25,7 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -64,6 +65,7 @@ dependencies {
     implementation(libs.json.path)
     implementation(libs.navigation.compose)
     implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.foundation)
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
 }

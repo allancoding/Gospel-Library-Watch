@@ -13,6 +13,7 @@
         <item>@string/English</item>
         <item>@string/Default</item>
     </string-array>
+    <string name="ClearHistory">Clear Reading History</string>
     <string name="Version">Version:</string>
     <string name="Copyright">Copyright:</string>
     <string name="copyright">© 2024 Allancoding - App\n© 2024 by Intellectual Reserve, Inc. All rights reserved. - The Standard Works</string>
