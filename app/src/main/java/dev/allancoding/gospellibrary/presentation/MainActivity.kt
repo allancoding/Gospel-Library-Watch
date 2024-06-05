@@ -75,7 +75,6 @@ import dev.allancoding.gospellibrary.presentation.theme.GospelLibraryTheme
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavOptions
 import androidx.wear.compose.material.ButtonDefaults
 import androidx.wear.compose.material.dialog.Alert
@@ -298,8 +297,14 @@ fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit, sett
                             }
                         }
                     }
+                    val type = getJson(context, "$.chapter.delineation", "$saveLocation.json", 0).toString()
+                    val page = if (type == "Page") {
+                        getJson(context, "$.chapter.title", "$saveLocation.json", 0).toString()
+                    } else {
+                        getJson(context, "$.chapter.bookTitle", "$saveLocation.json", 0).toString() + " " + getJson(context, "$.chapter.number", "$saveLocation.json", 1).toString()
+                    }
                     Chip(label = "Continue Reading",
-                        secondaryLabel = getJson(context, "$.chapter.bookTitle", "$saveLocation.json", 0).toString() + " " + getJson(context, "$.chapter.number", "$saveLocation.json", 1).toString(),
+                        secondaryLabel = page,
                         colors = ChipDefaults.secondaryChipColors(),
                         modifier = Modifier.fillMaxWidth(), onClick = { onShowRead(volume, book, chapter) })
                 }
@@ -498,12 +503,31 @@ fun ListChapters(context: Context, volume: String, book: String, onShowRead: (vo
 fun handleReadScroll(delta: Float, volume: String, book: String, chapter: String, onShowRead: (volume: String, books: String, chapter: String) -> Unit, context: Context) {
     val nextChapterId = getJson(context, "$.nextChapterId", "$volume/$book/$chapter.json", 0).toString()
     val prevChapterId = getJson(context, "$.prevChapterId", "$volume/$book/$chapter.json", 0).toString()
+    val nextChapterPath = getJson(context, "$.$nextChapterId.path", "search.json", 0).toString()
+    val prevChapterPath = getJson(context, "$.$prevChapterId.path", "search.json", 0).toString()
+    Log.d("json", "$volume - $book - $chapter")
     if (abs(delta) > 0) {
+        var newLocation = nextChapterPath.split("/")
         if (delta > 0) {
-            onShowRead(volume, book, prevChapterId)
-        } else {
-            onShowRead(volume, book, nextChapterId)
+            newLocation = prevChapterPath.split("/")
         }
+        var newVolume = ""
+        var newBook = ""
+        var newChapter = ""
+        for (i in newLocation.indices) {
+            when (i) {
+                0 -> {
+                    newVolume = newLocation[i]
+                }
+                1 -> {
+                    newBook = newLocation[i]
+                }
+                2 -> {
+                    newChapter = newLocation[i]
+                }
+            }
+        }
+        onShowRead(newVolume, newBook, newChapter)
     }
 }
 @SuppressLint("DiscouragedApi")
@@ -539,7 +563,6 @@ fun ReadChapter(context: Context, volume: String, book: String, chapter: String,
                 columnState = columnState,
                 modifier = Modifier.fillMaxSize()
             ) {
-                Log.d("json", "$volume - $book - $chapter")
                 val type = getJson(context, "$.chapter.delineation", "$volume/$book/$chapter.json", 0).toString()
                 val number = getJson(context, "$.chapter.number","$volume/$book/$chapter.json", 1).toString().toInt()
                 if (type == "Chapter" || type == "Section") {
@@ -841,9 +864,7 @@ fun getLang(): List<String> {
 @Composable
 fun ClearHistoryScreen(onShowSettingsList: () -> Unit, settings: SharedPreferences) {
     Alert(
-//        icon = ImageVector({
-//            name: Icons.Default.CleaningServices
-//        }),
+        icon = { Icon(Icons.Default.CleaningServices, contentDescription = "Clear") },
         title = { Text("Are you Sure?", textAlign = TextAlign.Center) },
         negativeButton = { Button(
             buttonSize = ButtonSize.Small,
@@ -858,7 +879,7 @@ fun ClearHistoryScreen(onShowSettingsList: () -> Unit, settings: SharedPreferenc
             colors = ButtonDefaults.primaryButtonColors(),
             contentDescription = "Ok",
             onClick = {
-                settingsSetValue(settings, "saveLocation", "")
+                settingsSetValue(settings, "saveLocation", "null")
                 onShowSettingsList()
             }
         )},
