@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.layout.Arrangement
@@ -73,12 +74,22 @@ import com.jayway.jsonpath.ReadContext
 import dev.allancoding.gospellibrary.R
 import dev.allancoding.gospellibrary.presentation.theme.GospelLibraryTheme
 import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.BaselineShift
 import androidx.navigation.NavOptions
 import androidx.wear.compose.material.ButtonDefaults
+import androidx.wear.compose.material.ToggleChipDefaults
 import androidx.wear.compose.material.dialog.Alert
+import com.google.android.horologist.compose.material.ToggleChip
 import kotlin.math.abs
+import com.google.android.horologist.compose.material.ToggleChipToggleControl
+
 
 class MainActivity : ComponentActivity() {
     private val sharedPreferences by lazy {
@@ -195,7 +206,7 @@ fun WearApp(settings: SharedPreferences, context: MainActivity) {
                                     .setPopUpTo("books/$volumeId/$bookId/$chapterId", inclusive = true)
                                     .build()
                             )
-                        })
+                        }, settings)
                     }
                 }
             }
@@ -533,7 +544,7 @@ fun handleReadScroll(delta: Float, volume: String, book: String, chapter: String
 @SuppressLint("DiscouragedApi")
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
-fun ReadChapter(context: Context, volume: String, book: String, chapter: String, onShowRead: (volume: String, books: String, chapter: String) -> Unit){
+fun ReadChapter(context: Context, volume: String, book: String, chapter: String, onShowRead: (volume: String, books: String, chapter: String) -> Unit, settings: SharedPreferences){
     val ensign = FontFamily(
         Font(R.font.mckaybroldslat_regular, FontWeight.Normal),
         Font(R.font.mckaybroldslat_bold, FontWeight.Bold),
@@ -628,12 +639,53 @@ fun ReadChapter(context: Context, volume: String, book: String, chapter: String,
                     item {
                         Spacer(modifier = Modifier.height(5.dp))
                     }
+                    val addFootnotes = settingsGetValue(settings,"footnote", "true").toString()
                     for (i in 0..<getJson(context, "$.chapter.verses","$volume/$book/$chapter.json", 2).toString().toInt()) {
                         val verse = (i + 1).toString()
-                        val spaces = "  ".repeat(verse.length)
+                        val fixVerse = buildAnnotatedString {
+                            append("$verse ")
+                            addStyle(SpanStyle(fontWeight = FontWeight.Bold), 0, verse.length)
+                            val text = getJson(context, "$.chapter.verses[$i].text","$volume/$book/$chapter.json", 0).toString()
+                            if (addFootnotes == "true") {
+                                val footnote = getJson(context, "$.chapter.verses[$i].footnotes","$volume/$book/$chapter.json", 2).toString().toInt()
+                                if (footnote > 0) {
+                                    var textI = 0
+                                    for (ii in 0..<footnote) {
+                                        val start = getJson(context, "$.chapter.verses[$i].footnotes[$ii].start","$volume/$book/$chapter.json", 1).toString().toInt()
+                                        val end = getJson(context, "$.chapter.verses[$i].footnotes[$ii].end","$volume/$book/$chapter.json", 1).toString().toInt()
+                                        append(text.substring(textI, start))
+                                        textI = end
+                                        pushStyle(SpanStyle(baselineShift = BaselineShift.Superscript, fontSize = 14.sp * 0.75, fontStyle = FontStyle.Italic, color = Color.hsl(187F, 0.62F, 0.74F)))
+                                        var letter = ii
+                                        while (letter > 25) {
+                                            letter -= 26
+                                        }
+                                        append(('a'.code + letter).toChar())
+                                        pop()
+                                        pushStyle(SpanStyle(color = Color.hsl(187F, 0.62F, 0.74F)))
+                                        val note = text.substring(start, end)
+                                        pushStringAnnotation(tag = "footnote/$ii", annotation = note)
+                                        append(note)
+                                        pop()
+                                    }
+                                    append(text.substring(textI, text.length))
+                                } else {
+                                    append(text)
+                                }
+                            } else {
+                                append(text)
+                            }
+                        }
                         item {
-                            Text(text = verse, fontFamily = ensign, fontWeight = FontWeight.Bold)
-                            Text(text = "$spaces " + getJson(context, "$.chapter.verses[$i].text","$volume/$book/$chapter.json", 0).toString(), fontFamily = ensign)
+                            Text(text = fixVerse, fontFamily = ensign, modifier = Modifier.clickable {
+                                // Find if the click was on the annotated text
+                                val annotation = fixVerse.getStringAnnotations(tag = "URL", start = 6, end = 10)
+                                if (annotation.isNotEmpty()) {
+                                    // Perform the action you want with the URL
+                                    val url = annotation[0].item
+                                    println("Clicked URL: $url")
+                                }
+                            })
                         }
                     }
                 } else if (type == "Page") {
@@ -732,6 +784,24 @@ fun ListSettingsScreen(
                 }, modifier = Modifier.fillMaxSize(), colors = ChipDefaults.secondaryChipColors(), icon = {
                     Icon(Icons.Default.Language, contentDescription = null)
                 }, onClick = onLangSelect)
+            }
+            item {
+                var onFootnote by remember {
+                    mutableStateOf(settingsGetValue(settings, "footnote", "true").toString().toBoolean())
+                }
+                ToggleChip(label = "Footnotes",
+                    secondaryLabel = "Speeds up rendering",
+                    colors = ToggleChipDefaults.toggleChipColors(
+                        checkedToggleControlColor = MaterialTheme.colors.primary,
+                        uncheckedToggleControlColor = ToggleChipDefaults.SwitchUncheckedIconColor
+                    ),
+                    checked = onFootnote,
+                    onCheckedChanged = { isChecked ->
+                        onFootnote = isChecked
+                        settingsSetValue(settings, "footnote", isChecked)
+                    },
+                    toggleControl = ToggleChipToggleControl.Switch,
+                    icon = Icons.AutoMirrored.Filled.Notes)
             }
             item {
                 Chip(label = {
