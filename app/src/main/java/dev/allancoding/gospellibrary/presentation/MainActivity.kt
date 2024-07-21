@@ -8,8 +8,8 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -74,14 +74,22 @@ import com.jayway.jsonpath.ReadContext
 import dev.allancoding.gospellibrary.R
 import dev.allancoding.gospellibrary.presentation.theme.GospelLibraryTheme
 import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.List
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.BaselineShift
+import androidx.compose.ui.text.withLink
 import androidx.navigation.NavOptions
 import androidx.wear.compose.material.ButtonDefaults
 import androidx.wear.compose.material.ToggleChipDefaults
@@ -89,7 +97,9 @@ import androidx.wear.compose.material.dialog.Alert
 import com.google.android.horologist.compose.material.ToggleChip
 import kotlin.math.abs
 import com.google.android.horologist.compose.material.ToggleChipToggleControl
-
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val sharedPreferences by lazy {
@@ -206,7 +216,21 @@ fun WearApp(settings: SharedPreferences, context: MainActivity) {
                                     .setPopUpTo("books/$volumeId/$bookId/$chapterId", inclusive = true)
                                     .build()
                             )
-                        }, settings)
+                        }, settings, onShowFootnote = { volumeId, bookId, chapterId, verseId, footnoteId ->
+                            navController.navigate("books/$volumeId/$bookId/$chapterId/$verseId/$footnoteId")
+                        })
+                    }
+                }
+            }
+            composable("books/{volumeId}/{bookId}/{chapterId}/{verseId}/{footnoteId}") { backStackEntry ->
+                val volumeId = backStackEntry.arguments?.getString("volumeId")
+                val bookId = backStackEntry.arguments?.getString("bookId")
+                val chapterId = backStackEntry.arguments?.getString("chapterId")
+                val verseId = backStackEntry.arguments?.getString("verseId")
+                val footnoteId = backStackEntry.arguments?.getString("footnoteId")
+                AppScaffold(timeText = true) {
+                    if (bookId != null && chapterId != null && volumeId != null && verseId != null && footnoteId != null) {
+                        ShowFootnote(context, volumeId, bookId, chapterId, verseId, footnoteId)
                     }
                 }
             }
@@ -512,12 +536,11 @@ fun ListChapters(context: Context, volume: String, book: String, onShowRead: (vo
 }
 
 fun handleReadScroll(delta: Float, volume: String, book: String, chapter: String, onShowRead: (volume: String, books: String, chapter: String) -> Unit, context: Context) {
-    val nextChapterId = getJson(context, "$.nextChapterId", "$volume/$book/$chapter.json", 0).toString()
-    val prevChapterId = getJson(context, "$.prevChapterId", "$volume/$book/$chapter.json", 0).toString()
-    val nextChapterPath = getJson(context, "$.$nextChapterId.path", "search.json", 0).toString()
-    val prevChapterPath = getJson(context, "$.$prevChapterId.path", "search.json", 0).toString()
-    Log.d("json", "$volume - $book - $chapter")
     if (abs(delta) > 0) {
+        val nextChapterId = getJson(context, "$.nextChapterId", "$volume/$book/$chapter.json", 0).toString()
+        val prevChapterId = getJson(context, "$.prevChapterId", "$volume/$book/$chapter.json", 0).toString()
+        val nextChapterPath = getJson(context, "$.$nextChapterId.path", "search.json", 0).toString()
+        val prevChapterPath = getJson(context, "$.$prevChapterId.path", "search.json", 0).toString()
         var newLocation = nextChapterPath.split("/")
         if (delta > 0) {
             newLocation = prevChapterPath.split("/")
@@ -541,10 +564,30 @@ fun handleReadScroll(delta: Float, volume: String, book: String, chapter: String
         onShowRead(newVolume, newBook, newChapter)
     }
 }
+fun Modifier.customLongPressGesture(
+    longPressDurationMillis: Long = 500L,
+    onLongPress: () -> Unit
+): Modifier = this.pointerInput(Unit) {
+    coroutineScope {
+        detectTapGestures(
+            onPress = {
+                val job = launch {
+                    delay(longPressDurationMillis)
+                    onLongPress()
+                }
+                try {
+                    awaitRelease()
+                } finally {
+                    job.cancel()
+                }
+            }
+        )
+    }
+}
 @SuppressLint("DiscouragedApi")
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
-fun ReadChapter(context: Context, volume: String, book: String, chapter: String, onShowRead: (volume: String, books: String, chapter: String) -> Unit, settings: SharedPreferences){
+fun ReadChapter(context: Context, volume: String, book: String, chapter: String, onShowRead: (volume: String, books: String, chapter: String) -> Unit, settings: SharedPreferences, onShowFootnote: (volume: String, books: String, chapter: String, verse: String, footnote: String) -> Unit){
     val ensign = FontFamily(
         Font(R.font.mckaybroldslat_regular, FontWeight.Normal),
         Font(R.font.mckaybroldslat_bold, FontWeight.Bold),
@@ -561,14 +604,17 @@ fun ReadChapter(context: Context, volume: String, book: String, chapter: String,
         handleReadScroll(delta, volume, book, chapter, onShowRead, context)
         delta
     }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .scrollable(
-                orientation = Orientation.Horizontal,
-                state = scrollState
-            )
-    ) {
+    val haptics = LocalHapticFeedback.current
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .scrollable(
+            orientation = Orientation.Horizontal,
+            state = scrollState
+        )
+        .customLongPressGesture(longPressDurationMillis = 1000L) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    ){
         ScreenScaffold(scrollState = columnState) {
             ScalingLazyColumn(
                 columnState = columnState,
@@ -656,16 +702,16 @@ fun ReadChapter(context: Context, volume: String, book: String, chapter: String,
                                         append(text.substring(textI, start))
                                         textI = end
                                         pushStyle(SpanStyle(baselineShift = BaselineShift.Superscript, fontSize = 14.sp * 0.75, fontStyle = FontStyle.Italic, color = Color.hsl(187F, 0.62F, 0.74F)))
-                                        var letter = ii
-                                        while (letter > 25) {
-                                            letter -= 26
-                                        }
-                                        append(('a'.code + letter).toChar())
+                                        val letter = ('a'.code + (ii % 26)).toChar()
+                                        append(letter)
                                         pop()
                                         pushStyle(SpanStyle(color = Color.hsl(187F, 0.62F, 0.74F)))
                                         val note = text.substring(start, end)
-                                        pushStringAnnotation(tag = "footnote/$ii", annotation = note)
-                                        append(note)
+                                        withLink(LinkAnnotation.Clickable("footnote", linkInteractionListener = {
+                                            onShowFootnote(volume, book, chapter, i.toString(), ii.toString())
+                                        })){
+                                            append(note)
+                                        }
                                         pop()
                                     }
                                     append(text.substring(textI, text.length))
@@ -677,15 +723,7 @@ fun ReadChapter(context: Context, volume: String, book: String, chapter: String,
                             }
                         }
                         item {
-                            Text(text = fixVerse, fontFamily = ensign, modifier = Modifier.clickable {
-                                // Find if the click was on the annotated text
-                                val annotation = fixVerse.getStringAnnotations(tag = "URL", start = 6, end = 10)
-                                if (annotation.isNotEmpty()) {
-                                    // Perform the action you want with the URL
-                                    val url = annotation[0].item
-                                    println("Clicked URL: $url")
-                                }
-                            })
+                            Text(text = fixVerse, fontFamily = ensign)
                         }
                     }
                 } else if (type == "Page") {
@@ -750,6 +788,48 @@ fun ReadChapter(context: Context, volume: String, book: String, chapter: String,
     }
 }
 
+@Composable
+fun ShowFootnote(context: Context, volume: String, book: String, chapter: String, verse: String, footnote: String) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        val title = getJson(context, "$.chapter.verses[${verse.toInt()}].footnotes[${footnote.toInt()}].footnote", "$volume/$book/$chapter.json", 0).toString()
+        Text(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 15.dp),
+            text = title,
+            fontSize = 18.sp,
+        )
+        Log.d("foot", parseScriptureReferences(title).toString())
+    }
+}
+
+fun parseScriptureReferences(input: String): List<Pair<String, Set<Int>>> {
+    val result = mutableListOf<Pair<String, Set<Int>>>()
+
+    val normalizedInput = input.replace("\u00A0", " ")
+
+    val regex = Regex("""(\w+ \d+):((?:\d+(?:–\d+)?(?:; )?)*)""")
+    regex.findAll(normalizedInput).forEach { matchResult ->
+        val bookChapter = matchResult.groups[1]?.value?.replace(" ", "").orEmpty().lowercase()
+        val verses = matchResult.groups[2]?.value.orEmpty()
+
+        val verseSet = mutableSetOf<Int>()
+        verses.split("; ").forEach { verseRange ->
+            if (verseRange.contains("–")) {
+                val (start, end) = verseRange.split("–").map { it.toInt() }
+                verseSet.addAll(start..end)
+            } else {
+                verseSet.add(verseRange.toInt())
+            }
+        }
+        result.add(bookChapter to verseSet)
+    }
+    return result
+}
+
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
 fun ListSettingsScreen(
@@ -802,6 +882,33 @@ fun ListSettingsScreen(
                     },
                     toggleControl = ToggleChipToggleControl.Switch,
                     icon = Icons.AutoMirrored.Filled.Notes)
+            }
+            item {
+                var onGrid by remember {
+                    mutableStateOf(settingsGetValue(settings, "grid", "false").toString().toBoolean())
+                }
+                var glabel by remember { mutableStateOf("Grid") }
+                var gslabel by remember { mutableStateOf("Grid Chapter Selection") }
+                var icon by remember { mutableStateOf(Icons.Default.GridOn) }
+                glabel = if (isChecked) "Grid" else "Selector"
+                gslabel = if (isChecked) "Grid Chapter Selection" else "Spin Chapter Selector"
+                icon = if (isChecked) Icons.Default.GridOn else Icons.AutoMirrored.Filled.List
+                ToggleChip(label = glabel,
+                    secondaryLabel = gslabel,
+                    colors = ToggleChipDefaults.toggleChipColors(
+                        checkedToggleControlColor = MaterialTheme.colors.primary,
+                        uncheckedToggleControlColor = ToggleChipDefaults.SwitchUncheckedIconColor
+                    ),
+                    checked = onGrid,
+                    onCheckedChanged = { isChecked ->
+                        onGrid = isChecked
+                        settingsSetValue(settings, "grid", isChecked)
+                        glabel = if (isChecked) "Grid" else "Selector"
+                        gslabel = if (isChecked) "Grid Chapter Selection" else "Spin Chapter Selector"
+                        icon = if (isChecked) Icons.Default.GridOn else Icons.AutoMirrored.Filled.List
+                    },
+                    toggleControl = ToggleChipToggleControl.Switch,
+                    icon = icon)
             }
             item {
                 Chip(label = {
