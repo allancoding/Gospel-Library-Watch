@@ -98,9 +98,12 @@ import androidx.wear.compose.material.rememberPickerState
 import com.google.android.horologist.compose.material.ToggleChip
 import kotlin.math.abs
 import com.google.android.horologist.compose.material.ToggleChipToggleControl
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
@@ -116,15 +119,15 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         setTheme(android.R.style.Theme_DeviceDefault)
-        getOfTheDay(sharedPreferences, this)
+        getOfTheDay(sharedPreferences, this){}
         setContent {
             WearApp(sharedPreferences, this)
         }
     }
 }
 
-fun getOfTheDay(sharedPreferences: SharedPreferences, context: Context) {
-    Thread {
+fun getOfTheDay(sharedPreferences: SharedPreferences, context: Context, callback: () -> Unit) {
+    CoroutineScope(Dispatchers.IO).launch {
         val ofDayApi = "https://multimedia-audience-delivery.churchofjesuschrist.org/ws/mobile-mad/v1/general"
         val currentDate = LocalDate.now()
         val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
@@ -146,7 +149,10 @@ fun getOfTheDay(sharedPreferences: SharedPreferences, context: Context) {
         val savedDate = LocalDate.parse(savedDateString, dateFormatter)
         val thresholdDate = currentDate.minusDays(7)
         if (!savedDate.isBefore(thresholdDate) && lang == savedLang) {
-            return@Thread
+            withContext(Dispatchers.Main) {
+                callback()
+            }
+            return@launch
         }
         var tryDate = 0
         while (true) {
@@ -165,7 +171,6 @@ fun getOfTheDay(sharedPreferences: SharedPreferences, context: Context) {
                         val verseUrl = URL("$verseApi/${tryDates[tryDate][0]}/${tryDates[tryDate][1]}")
                         val verseConnection = verseUrl.openConnection() as HttpURLConnection
                         verseConnection.connect()
-
                         if (verseConnection.responseCode == HttpURLConnection.HTTP_OK) {
                             verseConnection.inputStream.use { input ->
                                 FileOutputStream(File(context.filesDir, "verses.json")).use { output ->
@@ -200,7 +205,10 @@ fun getOfTheDay(sharedPreferences: SharedPreferences, context: Context) {
                 break
             }
         }
-    }.start()
+        withContext(Dispatchers.Main) {
+            callback()
+        }
+    }
 }
 
 fun settingsGetValue(sharedPreferences: SharedPreferences, key: String, defaultVal: Any): Any {
@@ -263,9 +271,6 @@ fun WearApp(settings: SharedPreferences, context: MainActivity) {
     GospelLibraryTheme {
         SwipeDismissableNavHost(navController = navController, startDestination = "menu") {
             composable("menu") {
-                LaunchedEffect(Unit) {
-                    getOfTheDay(settings, context)
-                }
                 AppScaffold(timeText = true) {
                     HomeScreen(
                         onShowBooksList = { navController.navigate("list") },
@@ -404,6 +409,29 @@ fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit, sett
             last = ItemType.Chip
         )
     )
+    var saveLocation = settingsGetValue(settings, "saveLocation", "null").toString()
+    val ofDay = settingsGetValue(settings, "apiDate", "null").toString()
+    var quoteOfTheDay by remember { mutableStateOf<Map<String, String>?>(null) }
+    var verseOfTheDay by remember { mutableStateOf<Map<String, String>?>(null) }
+    var quoteTitle by remember { mutableStateOf("") }
+    var verseTitle by remember { mutableStateOf("") }
+
+    LaunchedEffect(settings) {
+        getOfTheDay(settings, context) {
+            if (ofDay != "null") {
+                quoteOfTheDay = getQuoteOfTheDay(context)
+                quoteOfTheDay?.let {
+                    quoteTitle = it["title"] ?: ""
+                    quoteTitle = buildAnnotatedString { append(quoteTitle.replace("&nbsp;", "\u00A0")) }.toString()
+                }
+                verseOfTheDay = getVerseOfTheDay(context)
+                verseOfTheDay?.let {
+                    verseTitle = it["title"] ?: ""
+                    verseTitle = buildAnnotatedString { append(verseTitle.replace("&nbsp;", "\u00A0")) }.toString()
+                }
+            }
+        }
+    }
     ScreenScaffold(scrollState = columnState) {
         ScalingLazyColumn(
             columnState = columnState,
@@ -421,7 +449,6 @@ fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit, sett
                     )
                 }
             }
-            var saveLocation = settingsGetValue(settings,"saveLocation", "null").toString()
             if (saveLocation != "null") {
                 item {
                     saveLocation = saveLocation.removePrefix("books/")
@@ -466,29 +493,18 @@ fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit, sett
                 ), modifier = Modifier.fillMaxWidth(),
                     onClick = onShowBooksList)
             }
-            val ofDay = settingsGetValue(settings,"apiDate", "null").toString()
             if (ofDay != "null") {
                 item {
-                    val quoteOfTheDay = getQuoteOfTheDay(context)
-                    var title = ""
-                    quoteOfTheDay?.let {
-                        title = it["title"] ?: ""
-                    }
                     Chip(label = "Quote of the Day",
-                        secondaryLabel = title,
+                        secondaryLabel = quoteTitle,
                         colors = ChipDefaults.chipColors(
                             backgroundColor = Color(0xFF6D0C32)
                         ),
                         modifier = Modifier.fillMaxWidth(), onClick = { })
                 }
                 item {
-                    val verseOfTheDay = getVerseOfTheDay(context)
-                    var title = ""
-                    verseOfTheDay?.let {
-                        title = it["title"] ?: ""
-                    }
                     Chip(label = "Verse of the Day",
-                        secondaryLabel = title,
+                        secondaryLabel = verseTitle,
                         colors = ChipDefaults.gradientBackgroundChipColors(
                             startBackgroundColor = Color(0xFF1D4F73),
                             endBackgroundColor = Color(0xFF122F57),
