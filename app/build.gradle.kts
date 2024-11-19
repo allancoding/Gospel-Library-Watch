@@ -5,14 +5,14 @@ plugins {
 
 android {
     namespace = "dev.allancoding.gospellibrary"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "dev.allancoding.gospellibrary"
         minSdk = 30
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
-        versionName = "1.0.3"
+        versionName = "1.0.4"
         vectorDrawables {
             useSupportLibrary = true
         }

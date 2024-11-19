@@ -1,20 +1,20 @@
 [versions]
-agp = "8.7.1"
+agp = "8.7.2"
 kotlin = "1.9.0"
 playServicesWearable = "18.2.0"
-composeBom = "2024.05.00"
-tiles = "1.3.0"
-tilesMaterial = "1.3.0"
+composeBom = "2024.11.00"
+tiles = "1.4.1"
+tilesMaterial = "1.4.1"
 horologistComposeTools = "0.6.13"
 horologistTiles = "0.6.13"
 horologistComposables = "0.6.13"
 horologistComposeLayout = "0.6.13"
 horologistComposeMaterial = "0.6.13"
-materialIconsExtended = "1.7.0-beta02"
+materialIconsExtended = "1.7.5"
 preferenceKtx = "1.2.1"
 jsonPath = "2.9.0"
-coreSplashscreenVersion = "1.2.0-alpha01"
-foundation = "1.7.0-beta02"
+coreSplashscreenVersion = "1.2.0-alpha02"
+foundation = "1.7.5"
 
 [libraries]
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
@@ -22,9 +22,9 @@ compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = 
 ui = { group = "androidx.compose.ui", name = "ui" }
 ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version = "1.7.0-beta02" }
-compose-material = { group = "androidx.wear.compose", name = "compose-material", version = "1.4.0-beta02" }
-compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version = "1.4.0-beta02" }
+ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version = "1.7.5" }
+compose-material = { group = "androidx.wear.compose", name = "compose-material", version = "1.4.0" }
+compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version = "1.4.0" }
 tiles = { group = "androidx.wear.tiles", name = "tiles", version.ref = "tiles" }
 tiles-material = { group = "androidx.wear.tiles", name = "tiles-material", version.ref = "tilesMaterial" }
 horologist-compose-tools = { group = "com.google.android.horologist", name = "horologist-compose-tools", version.ref = "horologistComposeTools" }
@@ -35,7 +35,7 @@ horologist-compose-material = { group = "com.google.android.horologist", name = 
 material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIconsExtended" }
 preference-ktx = { group = "androidx.preference", name = "preference-ktx", version.ref = "preferenceKtx" }
 json-path = { group = "com.jayway.jsonpath", name = "json-path", version.ref = "jsonPath" }
-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version = "2.8.0-beta02" }
+navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version = "2.8.4" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreenVersion" }
 androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 

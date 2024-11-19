@@ -34,7 +34,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
@@ -79,6 +78,7 @@ import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -92,7 +92,6 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.navigation.NavOptions
 import androidx.wear.compose.material.ButtonDefaults
-import androidx.wear.compose.material.ChipColors
 import androidx.wear.compose.material.ToggleChipDefaults
 import androidx.wear.compose.material.dialog.Alert
 import androidx.wear.compose.material.rememberPickerState
@@ -102,6 +101,12 @@ import com.google.android.horologist.compose.material.ToggleChipToggleControl
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 class MainActivity : ComponentActivity() {
     private val sharedPreferences by lazy {
@@ -111,10 +116,91 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         setTheme(android.R.style.Theme_DeviceDefault)
+        getOfTheDay(sharedPreferences, this)
         setContent {
             WearApp(sharedPreferences, this)
         }
     }
+}
+
+fun getOfTheDay(sharedPreferences: SharedPreferences, context: Context) {
+    Thread {
+        val ofDayApi = "https://multimedia-audience-delivery.churchofjesuschrist.org/ws/mobile-mad/v1/general"
+        val currentDate = LocalDate.now()
+        val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        val lang = settingsGetValue(sharedPreferences, "language", "eng").toString()
+        val savedLang = settingsGetValue(sharedPreferences, "apiLanguage", "eng").toString()
+        val quoteApi = "$ofDayApi/QuoteOfTheDay/$lang/"
+        val verseApi = "$ofDayApi/ScriptureOfTheDay/$lang/nomarkup/"
+        val tryDates: Array<Array<String>> = Array(3) { Array(2) { "" } }
+        val today = currentDate.format(dateFormatter)
+        val yesterday = currentDate.minusDays(1).format(dateFormatter)
+        val yestdate = currentDate.minusDays(2).format(dateFormatter)
+        val todayRange = currentDate.plusDays(14).format(dateFormatter)
+        val yesterdayRange = currentDate.plusDays(13).format(dateFormatter)
+        val yestdateRange = currentDate.plusDays(12).format(dateFormatter)
+        tryDates[0] = arrayOf(today, todayRange)
+        tryDates[1] = arrayOf(yesterday, yesterdayRange)
+        tryDates[2] = arrayOf(yestdate, yestdateRange)
+        val savedDateString = settingsGetValue(sharedPreferences, "apiDate", today).toString()
+        val savedDate = LocalDate.parse(savedDateString, dateFormatter)
+        val thresholdDate = currentDate.minusDays(7)
+        if (!savedDate.isBefore(thresholdDate) && lang == savedLang) {
+            return@Thread
+        }
+        var tryDate = 0
+        while (true) {
+            try {
+                val url = URL("$quoteApi/${tryDates[tryDate][0]}/${tryDates[tryDate][1]}")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.connect()
+                when (connection.responseCode) {
+                    HttpURLConnection.HTTP_OK -> {
+                        connection.inputStream.use { input ->
+                            FileOutputStream(File(context.filesDir, "quotes.json")).use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        connection.disconnect()
+                        val verseUrl = URL("$verseApi/${tryDates[tryDate][0]}/${tryDates[tryDate][1]}")
+                        val verseConnection = verseUrl.openConnection() as HttpURLConnection
+                        verseConnection.connect()
+
+                        if (verseConnection.responseCode == HttpURLConnection.HTTP_OK) {
+                            verseConnection.inputStream.use { input ->
+                                FileOutputStream(File(context.filesDir, "verses.json")).use { output ->
+                                    input.copyTo(output)
+                                }
+                            }
+                        } else {
+                            println("Error downloading second file: HTTP ${verseConnection.responseCode}")
+                        }
+                        verseConnection.disconnect()
+                        settingsSetValue(sharedPreferences, "apiDate", tryDates[tryDate][0])
+                        settingsSetValue(sharedPreferences, "apiLanguage", lang)
+                        break
+                    }
+                    HttpURLConnection.HTTP_FORBIDDEN -> {
+                        println("Error: HTTP 403. Incrementing tryDate to retry.")
+                        tryDate++
+                        if (tryDate >= tryDates.size) {
+                            println("All tryDates exhausted. Exiting.")
+                            break
+                        }
+                    }
+                    else -> {
+                        println("Error: Server returned HTTP ${connection.responseCode}")
+                        connection.disconnect()
+                        break
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                println("File download failed: ${e.message}")
+                break
+            }
+        }
+    }.start()
 }
 
 fun settingsGetValue(sharedPreferences: SharedPreferences, key: String, defaultVal: Any): Any {
@@ -155,12 +241,31 @@ fun getJson(context: Context, path: String, file: String, type: Int): Any? {
     }
 }
 
+fun getQuoteOfTheDay(context: Context): Map<String, String>? {
+    val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+    val jsonText = File(context.filesDir, "quotes.json").readText()
+    val path = "$[*]"
+    val verses: List<Map<String, String>> = JsonPath.parse(jsonText).read(path)
+    return verses.find { it["date"] == date }
+}
+
+fun getVerseOfTheDay(context: Context): Map<String, String>? {
+    val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+    val jsonText = File(context.filesDir, "verses.json").readText()
+    val path = "$[*]"
+    val verses: List<Map<String, String>> = JsonPath.parse(jsonText).read(path)
+    return verses.find { it["date"] == date }
+}
+
 @Composable
 fun WearApp(settings: SharedPreferences, context: MainActivity) {
     val navController = rememberSwipeDismissableNavController()
     GospelLibraryTheme {
         SwipeDismissableNavHost(navController = navController, startDestination = "menu") {
             composable("menu") {
+                LaunchedEffect(Unit) {
+                    getOfTheDay(settings, context)
+                }
                 AppScaffold(timeText = true) {
                     HomeScreen(
                         onShowBooksList = { navController.navigate("list") },
@@ -243,6 +348,7 @@ fun WearApp(settings: SharedPreferences, context: MainActivity) {
                         onAboutPage = { navController.navigate("aboutPage") },
                         onLangSelect = { navController.navigate("langSelect") },
                         onCleanHistory = { navController.navigate("cleanHistory") },
+                        context,
                         settings
                     )
                 }
@@ -253,6 +359,7 @@ fun WearApp(settings: SharedPreferences, context: MainActivity) {
                         onShowSettingsList = {
                             navController.popBackStack("settings", false)
                         },
+                        context,
                         settings
                     )
                 }
@@ -359,23 +466,36 @@ fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit, sett
                 ), modifier = Modifier.fillMaxWidth(),
                     onClick = onShowBooksList)
             }
-            item {
-                Chip(label = "Quote of the Day",
-                    secondaryLabel = "",
-                    colors = ChipDefaults.chipColors(
-                        backgroundColor = Color(0xFF6D0C32)
-                    ),
-                    modifier = Modifier.fillMaxWidth(), onClick = { })
-            }
-            item {
-                Chip(label = "Verse of the Day",
-                    secondaryLabel = "",
-                    colors = ChipDefaults.gradientBackgroundChipColors(
-                        startBackgroundColor = Color(0xFF1D4F73),
-                        endBackgroundColor = Color(0xFF122F57),
-                        gradientDirection = LayoutDirection.Ltr
-                    ),
-                    modifier = Modifier.fillMaxWidth(), onClick = { })
+            val ofDay = settingsGetValue(settings,"apiDate", "null").toString()
+            if (ofDay != "null") {
+                item {
+                    val quoteOfTheDay = getQuoteOfTheDay(context)
+                    var title = ""
+                    quoteOfTheDay?.let {
+                        title = it["title"] ?: ""
+                    }
+                    Chip(label = "Quote of the Day",
+                        secondaryLabel = title,
+                        colors = ChipDefaults.chipColors(
+                            backgroundColor = Color(0xFF6D0C32)
+                        ),
+                        modifier = Modifier.fillMaxWidth(), onClick = { })
+                }
+                item {
+                    val verseOfTheDay = getVerseOfTheDay(context)
+                    var title = ""
+                    verseOfTheDay?.let {
+                        title = it["title"] ?: ""
+                    }
+                    Chip(label = "Verse of the Day",
+                        secondaryLabel = title,
+                        colors = ChipDefaults.gradientBackgroundChipColors(
+                            startBackgroundColor = Color(0xFF1D4F73),
+                            endBackgroundColor = Color(0xFF122F57),
+                            gradientDirection = LayoutDirection.Ltr
+                        ),
+                        modifier = Modifier.fillMaxWidth(), onClick = { })
+                }
             }
             item {
                 CompactChip(label = {
@@ -923,12 +1043,14 @@ fun parseScriptureReferences(input: String): Array<String> {
     return referencesArray
 }
 
+@SuppressLint("DiscouragedApi")
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
 fun ListSettingsScreen(
     onAboutPage: () -> Unit,
     onLangSelect: () -> Unit,
     onCleanHistory: () -> Unit,
+    context: Context,
     settings: SharedPreferences
 ) {
     val columnState = rememberResponsiveColumnState(
@@ -953,7 +1075,9 @@ fun ListSettingsScreen(
                 Chip(label = {
                     Text(text = stringResource(R.string.Language))
                 }, secondaryLabel = {
-                    Text(text = items[settingsGetValue(settings,"lang", 0).toString().toInt()])
+                    val resourceId = context.resources.getIdentifier(items[settingsGetValue(settings,"languages_array", 0).toString().toInt()], "string", context.packageName)
+                    val text = stringResource(id = resourceId)
+                    Text(text = text)
                 }, modifier = Modifier.fillMaxSize(), colors = ChipDefaults.secondaryChipColors(), icon = {
                     Icon(Icons.Default.Language, contentDescription = null)
                 }, onClick = onLangSelect)
@@ -1079,13 +1203,14 @@ fun ListItem(label: String, value: String) {
     }
 }
 
+@SuppressLint("DiscouragedApi")
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
-fun LangSelect(onShowSettingsList: () -> Unit, settings: SharedPreferences) {
+fun LangSelect(onShowSettingsList: () -> Unit, context: Context, settings: SharedPreferences) {
     val items = getLang()
     val state = rememberPickerState(
         initialNumberOfOptions = items.size,
-        initiallySelectedOption = settingsGetValue(settings, "lang", 0).toString().toInt(),
+        initiallySelectedOption = settingsGetValue(settings, "languages_array", 0).toString().toInt(),
         repeatItems = false
     )
     val contentDescription by remember { derivedStateOf { "${state.selectedOption}" } }
@@ -1106,7 +1231,9 @@ fun LangSelect(onShowSettingsList: () -> Unit, settings: SharedPreferences) {
             contentDescription = contentDescription,
             gradientColor = Color.Black,
         ) {
-            Text(items[it], color = if (state.selectedOption == it) MaterialTheme.colors.primary else MaterialTheme.colors.onSurfaceVariant, fontSize = 17.sp)
+            val resourceId = context.resources.getIdentifier(items[it], "string", context.packageName)
+            val text = stringResource(id = resourceId)
+            Text(text = text, color = if (state.selectedOption == it) MaterialTheme.colors.primary else MaterialTheme.colors.onSurfaceVariant, fontSize = 17.sp)
         }
         Button(
             modifier = Modifier
@@ -1116,7 +1243,8 @@ fun LangSelect(onShowSettingsList: () -> Unit, settings: SharedPreferences) {
             imageVector = Icons.Default.Check,
             contentDescription = "OK",
             onClick = {
-                settingsSetValue(settings, "lang", state.selectedOption)
+                settingsSetValue(settings, "languages_array", state.selectedOption)
+                settingsSetValue(settings, "language", items[state.selectedOption])
                 onShowSettingsList()
             }
         )
