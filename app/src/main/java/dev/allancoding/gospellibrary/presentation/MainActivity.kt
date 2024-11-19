@@ -119,7 +119,6 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         setTheme(android.R.style.Theme_DeviceDefault)
-        getOfTheDay(sharedPreferences, this){}
         setContent {
             WearApp(sharedPreferences, this)
         }
@@ -127,6 +126,7 @@ class MainActivity : ComponentActivity() {
 }
 
 fun getOfTheDay(sharedPreferences: SharedPreferences, context: Context, callback: () -> Unit) {
+    println("Getting of the day")
     CoroutineScope(Dispatchers.IO).launch {
         val ofDayApi = "https://multimedia-audience-delivery.churchofjesuschrist.org/ws/mobile-mad/v1/general"
         val currentDate = LocalDate.now()
@@ -145,7 +145,7 @@ fun getOfTheDay(sharedPreferences: SharedPreferences, context: Context, callback
         tryDates[0] = arrayOf(today, todayRange)
         tryDates[1] = arrayOf(yesterday, yesterdayRange)
         tryDates[2] = arrayOf(yestdate, yestdateRange)
-        val savedDateString = settingsGetValue(sharedPreferences, "apiDate", today).toString()
+        val savedDateString = settingsGetValue(sharedPreferences, "apiDate", "1970-01-01").toString()
         val savedDate = LocalDate.parse(savedDateString, dateFormatter)
         val thresholdDate = currentDate.minusDays(7)
         if (!savedDate.isBefore(thresholdDate) && lang == savedLang) {
@@ -181,6 +181,7 @@ fun getOfTheDay(sharedPreferences: SharedPreferences, context: Context, callback
                             println("Error downloading second file: HTTP ${verseConnection.responseCode}")
                         }
                         verseConnection.disconnect()
+                        println("Files downloaded successfully.")
                         settingsSetValue(sharedPreferences, "apiDate", tryDates[tryDate][0])
                         settingsSetValue(sharedPreferences, "apiLanguage", lang)
                         break
@@ -409,15 +410,15 @@ fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit, sett
             last = ItemType.Chip
         )
     )
-    var saveLocation = settingsGetValue(settings, "saveLocation", "null").toString()
-    val ofDay = settingsGetValue(settings, "apiDate", "null").toString()
     var quoteOfTheDay by remember { mutableStateOf<Map<String, String>?>(null) }
     var verseOfTheDay by remember { mutableStateOf<Map<String, String>?>(null) }
     var quoteTitle by remember { mutableStateOf("") }
     var verseTitle by remember { mutableStateOf("") }
+    var ofDay by remember { mutableStateOf(settingsGetValue(settings, "apiDate", "null").toString()) }
 
     LaunchedEffect(settings) {
         getOfTheDay(settings, context) {
+            ofDay = settingsGetValue(settings, "apiDate", "null").toString()
             if (ofDay != "null") {
                 quoteOfTheDay = getQuoteOfTheDay(context)
                 quoteOfTheDay?.let {
@@ -449,6 +450,7 @@ fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit, sett
                     )
                 }
             }
+            var saveLocation = settingsGetValue(settings, "saveLocation", "null").toString()
             if (saveLocation != "null") {
                 item {
                     saveLocation = saveLocation.removePrefix("books/")
