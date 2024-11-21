@@ -66,6 +66,8 @@ dependencies {
     implementation(libs.navigation.compose)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.foundation)
+    implementation(libs.androidx.wear.remote.interactions)
+    implementation(libs.coil.compose)
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
 }

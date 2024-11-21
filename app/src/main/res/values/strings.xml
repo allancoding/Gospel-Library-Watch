@@ -1,12 +1,15 @@
 <resources>
     <string name="app_name">Gospel Library</string>
-    <string name="tile_label">Verse of the Day</string>
-    <string name="complication_label">Verse of the Day</string>
+    <string name="VerseOfTheDay">Verse of the Day</string>
+    <string name="QuoteOfTheDay">Quote of the Day</string>
     <string name="app_version">1.0.3</string>
     <string name="About">About</string>
     <string name="Language">Language</string>
     <string name="Settings">Settings</string>
     <string name="Scriptures">Scriptures</string>
+    <string name="OpenOnPhone">Open on Phone</string>
+    <string name="TrueOpenOnPhone">Successfully opened on phone!</string>
+    <string name="FalseOpenOnPhone">Failed to open on phone!\n(You probably don\'t have a phone connected)</string>
     <string name="ClearHistory">Clear Reading History</string>
     <string name="Version">Version:</string>
     <string name="Copyright">Copyright:</string>

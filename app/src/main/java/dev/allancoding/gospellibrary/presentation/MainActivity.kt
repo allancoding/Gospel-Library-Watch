@@ -9,11 +9,17 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,29 +32,54 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CleaningServices
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.PhonelinkRing
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.navigation.NavOptions
+import androidx.wear.compose.material.ButtonDefaults
 import androidx.wear.compose.material.ChipDefaults
 import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.Icon
@@ -57,9 +88,17 @@ import androidx.wear.compose.material.Picker
 import androidx.wear.compose.material.Scaffold
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
+import androidx.wear.compose.material.ToggleChipDefaults
+import androidx.wear.compose.material.dialog.Alert
+import androidx.wear.compose.material.dialog.Confirmation
+import androidx.wear.compose.material.dialog.Dialog
+import androidx.wear.compose.material.rememberPickerState
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
+import androidx.wear.remote.interactions.RemoteActivityHelper
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.google.android.horologist.annotations.ExperimentalHorologistApi
 import com.google.android.horologist.compose.layout.ScalingLazyColumn
 import com.google.android.horologist.compose.layout.ScalingLazyColumnDefaults
@@ -71,42 +110,18 @@ import com.google.android.horologist.compose.material.ButtonSize
 import com.google.android.horologist.compose.material.Chip
 import com.google.android.horologist.compose.material.ListHeaderDefaults.firstItemPadding
 import com.google.android.horologist.compose.material.ResponsiveListHeader
+import com.google.android.horologist.compose.material.ToggleChip
+import com.google.android.horologist.compose.material.ToggleChipToggleControl
 import com.jayway.jsonpath.JsonPath
 import com.jayway.jsonpath.ReadContext
 import dev.allancoding.gospellibrary.R
 import dev.allancoding.gospellibrary.presentation.theme.GospelLibraryTheme
-import androidx.compose.foundation.gestures.scrollable
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.automirrored.filled.Notes
-import androidx.compose.material.icons.filled.CleaningServices
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.GridOn
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.LinkAnnotation
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.style.BaselineShift
-import androidx.compose.ui.text.withLink
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.navigation.NavOptions
-import androidx.wear.compose.material.ButtonDefaults
-import androidx.wear.compose.material.ToggleChipDefaults
-import androidx.wear.compose.material.dialog.Alert
-import androidx.wear.compose.material.rememberPickerState
-import com.google.android.horologist.compose.material.ToggleChip
-import kotlin.math.abs
-import com.google.android.horologist.compose.material.ToggleChipToggleControl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
@@ -114,10 +129,11 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import kotlin.math.abs
 
 class MainActivity : ComponentActivity() {
     private val sharedPreferences by lazy {
-        getSharedPreferences("app_preferences", Context.MODE_PRIVATE)
+        getSharedPreferences("app_preferences", MODE_PRIVATE)
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -270,13 +286,30 @@ fun getVerseOfTheDay(context: Context): Map<String, String>? {
     return verses.find { it["date"] == date }
 }
 
-@SuppressLint("WearRecents")
-fun openUrlOnPhone(context: Context, url: String) {
-    val intent = Intent(Intent.ACTION_VIEW).apply {
-        data = Uri.parse(url)
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+fun openUrlOnPhone(context: Context, url: String, callback: (Boolean) -> Unit) {
+    val remoteActivityHelper = RemoteActivityHelper(context)
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                data = Uri.parse(url)
+                addCategory(Intent.CATEGORY_BROWSABLE)
+            }
+            remoteActivityHelper.startRemoteActivity(intent).await()
+            withContext(Dispatchers.Main) {
+                callback(true)
+            }
+        } catch (e: RemoteActivityHelper.RemoteIntentException) {
+            println("Error: RemoteIntentException occurred - ${e.message}")
+            withContext(Dispatchers.Main) {
+                callback(false)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            withContext(Dispatchers.Main) {
+                callback(false)
+            }
+        }
     }
-    context.startActivity(intent)
 }
 
 @Composable
@@ -521,7 +554,7 @@ fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit, onSh
             }
             if (ofDay != "null") {
                 item {
-                    Chip(label = "Quote of the Day",
+                    Chip(label = stringResource(R.string.QuoteOfTheDay),
                         secondaryLabel = quoteTitle,
                         colors = ChipDefaults.chipColors(
                             backgroundColor = Color(0xFF6D0C32),
@@ -530,7 +563,7 @@ fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit, onSh
                         modifier = Modifier.fillMaxWidth(), onClick = {onShowOfTheDay("quote")})
                 }
                 item {
-                    Chip(label = "Verse of the Day",
+                    Chip(label = stringResource(R.string.VerseOfTheDay),
                         secondaryLabel = verseTitle,
                         colors = ChipDefaults.gradientBackgroundChipColors(
                             startBackgroundColor = Color(0xFF1D4F73),
@@ -580,28 +613,90 @@ fun OfTheDayScreen(context: Context, type: String) {
                 val quoteOfTheDay = getQuoteOfTheDay(context)
                 var quoteTitle = ""
                 var quoteText = ""
-                var quoteImg = ""
+                var quoteImgUrl = ""
                 var quoteUrl = ""
                 quoteOfTheDay?.let {
                     quoteTitle = it["title"] ?: ""
                     quoteText = it["text"] ?: ""
-                    quoteImg = it["imageAssetId"] ?: ""
+                    quoteImgUrl = it["imageAssetId"] ?: ""
                     quoteUrl = it["uri"] ?: ""
                     quoteTitle = buildAnnotatedString { append(quoteTitle.replace("&nbsp;", "\u00A0")) }.toString()
                     quoteText = buildAnnotatedString { append(quoteText.replace("&nbsp;", "\u00A0")) }.toString()
-                    quoteUrl = "https://www.churchofjesuschrist.org/imgs/$quoteImg/full/%21500%2C/0/default"
+                    quoteImgUrl = "https://www.churchofjesuschrist.org/imgs/$quoteImgUrl/full/%21500%2C/0/default"
                     quoteUrl = "https://www.churchofjesuschrist.org$quoteUrl"
                 }
                 item {
                     ResponsiveListHeader(contentPadding = firstItemPadding()) {
-                        Text(text = "Quote of the Day", fontSize = 18.sp, color = Color(0xFFF8A0B2))
+                        Text(text = stringResource(R.string.VerseOfTheDay), fontSize = 18.sp, color = Color(0xFFF8A0B2))
+                    }
+                }
+                item {
+                    Box(modifier = Modifier.fillMaxSize().padding(vertical = 5.dp), contentAlignment = Alignment.Center) {
+                        val showShimmer = remember { mutableStateOf(true) }
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(quoteImgUrl)
+                                .crossfade(1000)
+                                .build(),
+                            contentDescription = quoteTitle,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .width(225.dp)
+                                .height(126.5.dp)
+                                .background(shimmerBrush(targetValue = 1300f, showShimmer = showShimmer.value)),
+                            onSuccess = { showShimmer.value = false },
+                        )
                     }
                 }
                 item {
                     Text(text = quoteText, fontFamily = ensign, fontSize = 18.sp, fontStyle = FontStyle.Italic)
                 }
                 item {
-                    Text(text = quoteTitle, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Left, color = Color(0xFFF8A0B2), modifier = Modifier.fillMaxSize().padding(vertical = 5.dp))
+                    Text(text = quoteTitle, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Left, color = Color(0xFFF8A0B2), modifier = Modifier
+                        .fillMaxSize()
+                        .padding(vertical = 5.dp))
+                }
+                item {
+                    Box(modifier = Modifier. fillMaxSize(), contentAlignment = Alignment.TopStart) {
+                        var showTrueDialog by remember { mutableStateOf(false) }
+                        var showFalseDialog by remember { mutableStateOf(false) }
+                        CompactChip(label = {
+                            Text(
+                                text = stringResource(R.string.OpenOnPhone),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }, colors = ChipDefaults.chipColors(
+                            backgroundColor = Color(0xFFA6014E),
+                        ), onClick = {
+                            openUrlOnPhone(context, quoteUrl) { success ->
+                                if(success) {
+                                    showTrueDialog = true
+                                } else {
+                                    showFalseDialog = true
+                                }
+                            }
+                        })
+                        Dialog(showDialog = showTrueDialog, onDismissRequest = { showTrueDialog = false }) {
+                            Confirmation(
+                                onTimeout = { showTrueDialog = false },
+                                icon = { Icon(Icons.Default.PhonelinkRing, contentDescription = "Phone") },
+                                durationMillis = 3000,
+                            ) {
+                                Text(text = stringResource(R.string.TrueOpenOnPhone), textAlign = TextAlign.Center)
+                            }
+                        }
+                        Dialog(showDialog = showFalseDialog, onDismissRequest = { showFalseDialog = false }) {
+                            Confirmation(
+                                onTimeout = { showFalseDialog = false },
+                                icon = { Icon(Icons.Default.PhonelinkRing, contentDescription = "Phone") },
+                                durationMillis = 4000,
+                            ) {
+                                Text(text = stringResource(R.string.FalseOpenOnPhone), textAlign = TextAlign.Center)
+                            }
+                        }
+                    }
                 }
             }
         } else if (type == "verse") {
@@ -609,7 +704,14 @@ fun OfTheDayScreen(context: Context, type: String) {
                 columnState = columnState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(brush = Brush.verticalGradient(colors = listOf(Color(0xFF1D4F73), Color(0xFF122F57))))
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF1D4F73),
+                                Color(0xFF122F57)
+                            )
+                        )
+                    )
             ) {
                 val verseOfTheDay = getVerseOfTheDay(context)
                 var verseTitle = ""
@@ -625,14 +727,57 @@ fun OfTheDayScreen(context: Context, type: String) {
                 }
                 item {
                     ResponsiveListHeader(contentPadding = firstItemPadding()) {
-                        Text(text = "Verse of the Day", fontSize = 18.sp, color = Color(0xFFAFEEFC))
+                        Text(text = stringResource(R.string.VerseOfTheDay), fontSize = 18.sp, color = Color(0xFFAFEEFC))
                     }
                 }
                 item {
                     Text(text = verseText, fontFamily = ensign, fontSize = 18.sp)
                 }
                 item {
-                    Text(text = verseTitle, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Left, color = Color(0xFFAFEEFC), modifier = Modifier.fillMaxSize().padding(vertical = 5.dp))
+                    Text(text = verseTitle, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Left, color = Color(0xFFAFEEFC), modifier = Modifier
+                        .fillMaxSize()
+                        .padding(vertical = 5.dp))
+                }
+                item {
+                    var showTrueDialog by remember { mutableStateOf(false) }
+                    var showFalseDialog by remember { mutableStateOf(false) }
+                    Box(modifier = Modifier. fillMaxSize(), contentAlignment = Alignment.TopStart) {
+                        CompactChip(label = {
+                            Text(
+                                text = stringResource(R.string.OpenOnPhone),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }, colors = ChipDefaults.chipColors(
+                            backgroundColor = Color(0xFF226083),
+                        ), onClick = {
+                            openUrlOnPhone(context, verseUrl) { success ->
+                                if(success) {
+                                    showTrueDialog = true
+                                } else {
+                                    showFalseDialog = true
+                                }
+                            }
+                        })
+                        Dialog(showDialog = showTrueDialog, onDismissRequest = { showTrueDialog = false }) {
+                            Confirmation(
+                                onTimeout = { showTrueDialog = false },
+                                icon = { Icon(Icons.Default.PhonelinkRing, contentDescription = "Phone") },
+                                durationMillis = 3000,
+                            ) {
+                                Text(text = stringResource(R.string.TrueOpenOnPhone), textAlign = TextAlign.Center)
+                            }
+                        }
+                        Dialog(showDialog = showFalseDialog, onDismissRequest = { showFalseDialog = false }) {
+                            Confirmation(
+                                onTimeout = { showFalseDialog = false },
+                                icon = { Icon(Icons.Default.PhonelinkRing, contentDescription = "Phone") },
+                                durationMillis = 5000,
+                            ) {
+                                Text(text = stringResource(R.string.FalseOpenOnPhone), textAlign = TextAlign.Center)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1413,6 +1558,36 @@ fun ClearHistoryScreen(onShowSettingsList: () -> Unit, settings: SharedPreferenc
         Text(
             text = "Do you want to clear your reading history?",
             textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+fun shimmerBrush(showShimmer: Boolean = true,targetValue:Float = 1000f): Brush {
+    return if (showShimmer) {
+        val shimmerColors = listOf(
+            Color.LightGray.copy(alpha = 0.6f),
+            Color.LightGray.copy(alpha = 0.2f),
+            Color.LightGray.copy(alpha = 0.6f),
+        )
+        val transition = rememberInfiniteTransition(label = "")
+        val translateAnimation = transition.animateFloat(
+            initialValue = 0f,
+            targetValue = targetValue,
+            animationSpec = infiniteRepeatable(
+                animation = tween(800), repeatMode = RepeatMode.Reverse
+            ), label = ""
+        )
+        Brush.linearGradient(
+            colors = shimmerColors,
+            start = Offset.Zero,
+            end = Offset(x = translateAnimation.value, y = translateAnimation.value)
+        )
+    } else {
+        Brush.linearGradient(
+            colors = listOf(Color.Transparent,Color.Transparent),
+            start = Offset.Zero,
+            end = Offset.Zero
         )
     }
 }

@@ -5,16 +5,18 @@ playServicesWearable = "18.2.0"
 composeBom = "2024.11.00"
 tiles = "1.4.1"
 tilesMaterial = "1.4.1"
-horologistComposeTools = "0.6.13"
-horologistTiles = "0.6.13"
-horologistComposables = "0.6.13"
-horologistComposeLayout = "0.6.13"
-horologistComposeMaterial = "0.6.13"
+horologistComposeTools = "0.6.20"
+horologistTiles = "0.6.20"
+horologistComposables = "0.6.20"
+horologistComposeLayout = "0.6.20"
+horologistComposeMaterial = "0.6.20"
 materialIconsExtended = "1.7.5"
 preferenceKtx = "1.2.1"
 jsonPath = "2.9.0"
 coreSplashscreenVersion = "1.2.0-alpha02"
 foundation = "1.7.5"
+wearRemoteInteractions = "1.0.0"
+coilCompose = "2.7.0"
 
 [libraries]
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
@@ -38,6 +40,8 @@ json-path = { group = "com.jayway.jsonpath", name = "json-path", version.ref = "
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version = "2.8.4" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreenVersion" }
 androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
+androidx-wear-remote-interactions = { group = "androidx.wear", name = "wear-remote-interactions", version.ref = "wearRemoteInteractions" }
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coilCompose" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
