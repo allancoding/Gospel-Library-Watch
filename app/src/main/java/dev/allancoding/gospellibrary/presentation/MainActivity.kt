@@ -2,12 +2,15 @@ package dev.allancoding.gospellibrary.presentation
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberScrollableState
@@ -81,6 +84,7 @@ import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -266,6 +270,15 @@ fun getVerseOfTheDay(context: Context): Map<String, String>? {
     return verses.find { it["date"] == date }
 }
 
+@SuppressLint("WearRecents")
+fun openUrlOnPhone(context: Context, url: String) {
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        data = Uri.parse(url)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    context.startActivity(intent)
+}
+
 @Composable
 fun WearApp(settings: SharedPreferences, context: MainActivity) {
     val navController = rememberSwipeDismissableNavController()
@@ -276,6 +289,9 @@ fun WearApp(settings: SharedPreferences, context: MainActivity) {
                     HomeScreen(
                         onShowBooksList = { navController.navigate("list") },
                         onShowSettingsList = { navController.navigate("settings") },
+                        onShowOfTheDay = { type ->
+                            navController.navigate("ofTheDay/$type")
+                        },
                         settings,
                         context,
                         onShowRead = { volumeId, bookId, chapterId ->
@@ -284,6 +300,14 @@ fun WearApp(settings: SharedPreferences, context: MainActivity) {
                             navController.navigate(saveLocation)
                         }
                     )
+                }
+            }
+            composable("ofTheDay/{type}") { backStackEntry ->
+                val type = backStackEntry.arguments?.getString("type")
+                AppScaffold(timeText = true) {
+                    if (type != null) {
+                        OfTheDayScreen(context, type)
+                    }
                 }
             }
             composable("list") {
@@ -403,7 +427,7 @@ fun AppScaffold(
 
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
-fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit, settings: SharedPreferences, context: Context, onShowRead: (volume: String, books: String, chapter: String) -> Unit) {
+fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit, onShowOfTheDay: (type: String) -> Unit, settings: SharedPreferences, context: Context, onShowRead: (volume: String, books: String, chapter: String) -> Unit) {
     val columnState = rememberResponsiveColumnState(
         contentPadding = ScalingLazyColumnDefaults.padding(
             first = ItemType.Text,
@@ -500,9 +524,10 @@ fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit, sett
                     Chip(label = "Quote of the Day",
                         secondaryLabel = quoteTitle,
                         colors = ChipDefaults.chipColors(
-                            backgroundColor = Color(0xFF6D0C32)
+                            backgroundColor = Color(0xFF6D0C32),
+                            secondaryContentColor = Color(0xFFF8A0B2)
                         ),
-                        modifier = Modifier.fillMaxWidth(), onClick = { })
+                        modifier = Modifier.fillMaxWidth(), onClick = {onShowOfTheDay("quote")})
                 }
                 item {
                     Chip(label = "Verse of the Day",
@@ -510,9 +535,10 @@ fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit, sett
                         colors = ChipDefaults.gradientBackgroundChipColors(
                             startBackgroundColor = Color(0xFF1D4F73),
                             endBackgroundColor = Color(0xFF122F57),
-                            gradientDirection = LayoutDirection.Ltr
+                            gradientDirection = LayoutDirection.Ltr,
+                            secondaryContentColor = Color(0xFFAFEEFC),
                         ),
-                        modifier = Modifier.fillMaxWidth(), onClick = { })
+                        modifier = Modifier.fillMaxWidth(), onClick = {onShowOfTheDay("verse")})
                 }
             }
             item {
@@ -523,6 +549,91 @@ fun HomeScreen(onShowBooksList: () -> Unit, onShowSettingsList: () -> Unit, sett
                         overflow = TextOverflow.Ellipsis
                     )
                 }, colors = ChipDefaults.secondaryChipColors(), onClick = onShowSettingsList)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalHorologistApi::class)
+@Composable
+fun OfTheDayScreen(context: Context, type: String) {
+    val columnState = rememberResponsiveColumnState(
+        contentPadding = ScalingLazyColumnDefaults.padding(
+            first = ItemType.Text,
+            last = ItemType.Chip
+        )
+    )
+    val ensign = FontFamily(
+        Font(R.font.mckaybroldslat_regular, FontWeight.Normal),
+        Font(R.font.mckaybroldslat_bold, FontWeight.Bold),
+        Font(R.font.mckaybroldslat_italic, FontWeight.Normal, FontStyle.Italic),
+        Font(R.font.mckaybroldslat_bolditalic, FontWeight.Bold, FontStyle.Italic)
+    )
+    ScreenScaffold(scrollState = columnState) {
+        if (type == "quote") {
+            ScalingLazyColumn(
+                columnState = columnState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF6D0C32))
+            ) {
+                val quoteOfTheDay = getQuoteOfTheDay(context)
+                var quoteTitle = ""
+                var quoteText = ""
+                var quoteImg = ""
+                var quoteUrl = ""
+                quoteOfTheDay?.let {
+                    quoteTitle = it["title"] ?: ""
+                    quoteText = it["text"] ?: ""
+                    quoteImg = it["imageAssetId"] ?: ""
+                    quoteUrl = it["uri"] ?: ""
+                    quoteTitle = buildAnnotatedString { append(quoteTitle.replace("&nbsp;", "\u00A0")) }.toString()
+                    quoteText = buildAnnotatedString { append(quoteText.replace("&nbsp;", "\u00A0")) }.toString()
+                    quoteUrl = "https://www.churchofjesuschrist.org/imgs/$quoteImg/full/%21500%2C/0/default"
+                    quoteUrl = "https://www.churchofjesuschrist.org$quoteUrl"
+                }
+                item {
+                    ResponsiveListHeader(contentPadding = firstItemPadding()) {
+                        Text(text = "Quote of the Day", fontSize = 18.sp, color = Color(0xFFF8A0B2))
+                    }
+                }
+                item {
+                    Text(text = quoteText, fontFamily = ensign, fontSize = 18.sp, fontStyle = FontStyle.Italic)
+                }
+                item {
+                    Text(text = quoteTitle, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Left, color = Color(0xFFF8A0B2), modifier = Modifier.fillMaxSize().padding(vertical = 5.dp))
+                }
+            }
+        } else if (type == "verse") {
+            ScalingLazyColumn(
+                columnState = columnState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(brush = Brush.verticalGradient(colors = listOf(Color(0xFF1D4F73), Color(0xFF122F57))))
+            ) {
+                val verseOfTheDay = getVerseOfTheDay(context)
+                var verseTitle = ""
+                var verseText = ""
+                var verseUrl = ""
+                verseOfTheDay?.let {
+                    verseTitle = it["title"] ?: ""
+                    verseText = it["text"] ?: ""
+                    verseUrl = it["uri"] ?: ""
+                    verseTitle = buildAnnotatedString { append(verseTitle.replace("&nbsp;", "\u00A0")) }.toString()
+                    verseText = buildAnnotatedString { append(verseText.replace("&nbsp;", "\u00A0")) }.toString()
+                    verseUrl = "https://www.churchofjesuschrist.org$verseUrl"
+                }
+                item {
+                    ResponsiveListHeader(contentPadding = firstItemPadding()) {
+                        Text(text = "Verse of the Day", fontSize = 18.sp, color = Color(0xFFAFEEFC))
+                    }
+                }
+                item {
+                    Text(text = verseText, fontFamily = ensign, fontSize = 18.sp)
+                }
+                item {
+                    Text(text = verseTitle, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Left, color = Color(0xFFAFEEFC), modifier = Modifier.fillMaxSize().padding(vertical = 5.dp))
+                }
             }
         }
     }
@@ -848,7 +959,6 @@ fun ReadChapter(context: Context, volume: String, book: String, chapter: String,
         )
         .customLongPressGesture(longPressDurationMillis = 1000L) {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-
         }
     ){
         ScreenScaffold(scrollState = columnState) {
