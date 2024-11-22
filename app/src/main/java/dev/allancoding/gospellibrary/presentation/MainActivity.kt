@@ -7,6 +7,8 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.Window
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.RepeatMode
@@ -44,6 +46,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PhonelinkRing
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -58,6 +61,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -140,7 +144,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setTheme(android.R.style.Theme_DeviceDefault)
         setContent {
-            WearApp(sharedPreferences, this)
+            WearApp(sharedPreferences, this, window)
         }
     }
 }
@@ -313,7 +317,7 @@ fun openUrlOnPhone(context: Context, url: String, callback: (Boolean) -> Unit) {
 }
 
 @Composable
-fun WearApp(settings: SharedPreferences, context: MainActivity) {
+fun WearApp(settings: SharedPreferences, context: MainActivity, window: Window) {
     val navController = rememberSwipeDismissableNavController()
     GospelLibraryTheme {
         SwipeDismissableNavHost(navController = navController, startDestination = "menu") {
@@ -337,7 +341,7 @@ fun WearApp(settings: SharedPreferences, context: MainActivity) {
             }
             composable("ofTheDay/{type}") { backStackEntry ->
                 val type = backStackEntry.arguments?.getString("type")
-                AppScaffold(timeText = true) {
+                AppScaffold(timeText = false) {
                     if (type != null) {
                         OfTheDayScreen(context, type)
                     }
@@ -380,7 +384,7 @@ fun WearApp(settings: SharedPreferences, context: MainActivity) {
                 AppScaffold(timeText = false) {
                     if (volumeId != null && bookId != null && chapterId != null) {
                         settingsSetValue(settings, "saveLocation", "books/$volumeId/$bookId/$chapterId")
-                        ReadChapter(context, volumeId, bookId, chapterId, onShowRead = { volumeId, bookId, chapterId ->
+                        ReadChapter(context, window, volumeId, bookId, chapterId, onShowRead = { volumeId, bookId, chapterId ->
                             navController.navigate(
                                 route = "books/$volumeId/$bookId/$chapterId",
                                 navOptions = NavOptions.Builder()
@@ -451,10 +455,10 @@ fun AppScaffold(
     content: @Composable () -> Unit
 ) {
     Scaffold {
+        content()
         if (timeText) {
             TimeText()
         }
-        content()
     }
 }
 
@@ -602,13 +606,14 @@ fun OfTheDayScreen(context: Context, type: String) {
         Font(R.font.mckaybroldslat_italic, FontWeight.Normal, FontStyle.Italic),
         Font(R.font.mckaybroldslat_bolditalic, FontWeight.Bold, FontStyle.Italic)
     )
-    ScreenScaffold(scrollState = columnState) {
-        if (type == "quote") {
+    if (type == "quote") {
+        ScreenScaffold(
+            scrollState = columnState,
+            modifier = Modifier.background(Color(0xFF6D0C32))
+        ) {
             ScalingLazyColumn(
                 columnState = columnState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF6D0C32))
+                modifier = Modifier.fillMaxSize()
             ) {
                 val quoteOfTheDay = getQuoteOfTheDay(context)
                 var quoteTitle = ""
@@ -620,45 +625,89 @@ fun OfTheDayScreen(context: Context, type: String) {
                     quoteText = it["text"] ?: ""
                     quoteImgUrl = it["imageAssetId"] ?: ""
                     quoteUrl = it["uri"] ?: ""
-                    quoteTitle = buildAnnotatedString { append(quoteTitle.replace("&nbsp;", "\u00A0")) }.toString()
-                    quoteText = buildAnnotatedString { append(quoteText.replace("&nbsp;", "\u00A0")) }.toString()
-                    quoteImgUrl = "https://www.churchofjesuschrist.org/imgs/$quoteImgUrl/full/%21500%2C/0/default"
+                    quoteTitle = buildAnnotatedString {
+                        append(
+                            quoteTitle.replace(
+                                "&nbsp;",
+                                "\u00A0"
+                            )
+                        )
+                    }.toString()
+                    quoteText = buildAnnotatedString {
+                        append(
+                            quoteText.replace(
+                                "&nbsp;",
+                                "\u00A0"
+                            )
+                        )
+                    }.toString()
+                    quoteImgUrl =
+                        "https://www.churchofjesuschrist.org/imgs/$quoteImgUrl/full/%21500%2C/0/default"
                     quoteUrl = "https://www.churchofjesuschrist.org$quoteUrl"
                 }
                 item {
                     ResponsiveListHeader(contentPadding = firstItemPadding()) {
-                        Text(text = stringResource(R.string.VerseOfTheDay), fontSize = 18.sp, color = Color(0xFFF8A0B2))
+                        Text(
+                            text = stringResource(R.string.VerseOfTheDay),
+                            fontSize = 18.sp,
+                            color = Color(0xFFF8A0B2)
+                        )
                     }
                 }
                 item {
-                    Box(modifier = Modifier.fillMaxSize().padding(vertical = 5.dp), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(vertical = 5.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         val showShimmer = remember { mutableStateOf(true) }
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(quoteImgUrl)
                                 .crossfade(1000)
                                 .build(),
+                            error = painterResource(id = R.drawable.error_404),
                             contentDescription = quoteTitle,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(16.dp))
                                 .width(225.dp)
                                 .height(126.5.dp)
-                                .background(shimmerBrush(targetValue = 1300f, showShimmer = showShimmer.value)),
+                                .background(
+                                    shimmerBrush(
+                                        targetValue = 1300f,
+                                        showShimmer = showShimmer.value
+                                    )
+                                ),
+                            onError = { showShimmer.value = false },
                             onSuccess = { showShimmer.value = false },
                         )
                     }
                 }
                 item {
-                    Text(text = quoteText, fontFamily = ensign, fontSize = 18.sp, fontStyle = FontStyle.Italic)
+                    Text(
+                        text = quoteText,
+                        fontFamily = ensign,
+                        fontSize = 16.sp,
+                        fontStyle = FontStyle.Italic
+                    )
                 }
                 item {
-                    Text(text = quoteTitle, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Left, color = Color(0xFFF8A0B2), modifier = Modifier
-                        .fillMaxSize()
-                        .padding(vertical = 5.dp))
+                    Text(
+                        text = quoteTitle,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Left,
+                        color = Color(0xFFF8A0B2),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(vertical = 5.dp)
+                    )
                 }
                 item {
-                    Box(modifier = Modifier. fillMaxSize(), contentAlignment = Alignment.TopStart) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.TopStart
+                    ) {
                         var showTrueDialog by remember { mutableStateOf(false) }
                         var showFalseDialog by remember { mutableStateOf(false) }
                         CompactChip(label = {
@@ -671,47 +720,68 @@ fun OfTheDayScreen(context: Context, type: String) {
                             backgroundColor = Color(0xFFA6014E),
                         ), onClick = {
                             openUrlOnPhone(context, quoteUrl) { success ->
-                                if(success) {
+                                if (success) {
                                     showTrueDialog = true
                                 } else {
                                     showFalseDialog = true
                                 }
                             }
                         })
-                        Dialog(showDialog = showTrueDialog, onDismissRequest = { showTrueDialog = false }) {
+                        Dialog(
+                            showDialog = showTrueDialog,
+                            onDismissRequest = { showTrueDialog = false }) {
                             Confirmation(
                                 onTimeout = { showTrueDialog = false },
-                                icon = { Icon(Icons.Default.PhonelinkRing, contentDescription = "Phone") },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.PhonelinkRing,
+                                        contentDescription = "Phone"
+                                    )
+                                },
                                 durationMillis = 3000,
                             ) {
-                                Text(text = stringResource(R.string.TrueOpenOnPhone), textAlign = TextAlign.Center)
+                                Text(
+                                    text = stringResource(R.string.TrueOpenOnPhone),
+                                    textAlign = TextAlign.Center
+                                )
                             }
                         }
-                        Dialog(showDialog = showFalseDialog, onDismissRequest = { showFalseDialog = false }) {
+                        Dialog(
+                            showDialog = showFalseDialog,
+                            onDismissRequest = { showFalseDialog = false }) {
                             Confirmation(
                                 onTimeout = { showFalseDialog = false },
-                                icon = { Icon(Icons.Default.PhonelinkRing, contentDescription = "Phone") },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.PhonelinkRing,
+                                        contentDescription = "Phone"
+                                    )
+                                },
                                 durationMillis = 4000,
                             ) {
-                                Text(text = stringResource(R.string.FalseOpenOnPhone), textAlign = TextAlign.Center)
+                                Text(
+                                    text = stringResource(R.string.FalseOpenOnPhone),
+                                    textAlign = TextAlign.Center
+                                )
                             }
                         }
                     }
                 }
             }
-        } else if (type == "verse") {
+            TimeText()
+        }
+    } else if (type == "verse") {
+        ScreenScaffold(scrollState = columnState, modifier = Modifier.background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF1D4F73),
+                        Color(0xFF122F57)
+                    )
+                )
+            )) {
             ScalingLazyColumn(
                 columnState = columnState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0xFF1D4F73),
-                                Color(0xFF122F57)
-                            )
-                        )
-                    )
+                modifier = Modifier.fillMaxSize()
             ) {
                 val verseOfTheDay = getVerseOfTheDay(context)
                 var verseTitle = ""
@@ -721,27 +791,55 @@ fun OfTheDayScreen(context: Context, type: String) {
                     verseTitle = it["title"] ?: ""
                     verseText = it["text"] ?: ""
                     verseUrl = it["uri"] ?: ""
-                    verseTitle = buildAnnotatedString { append(verseTitle.replace("&nbsp;", "\u00A0")) }.toString()
-                    verseText = buildAnnotatedString { append(verseText.replace("&nbsp;", "\u00A0")) }.toString()
+                    verseTitle = buildAnnotatedString {
+                        append(
+                            verseTitle.replace(
+                                "&nbsp;",
+                                "\u00A0"
+                            )
+                        )
+                    }.toString()
+                    verseText = buildAnnotatedString {
+                        append(
+                            verseText.replace(
+                                "&nbsp;",
+                                "\u00A0"
+                            )
+                        )
+                    }.toString()
                     verseUrl = "https://www.churchofjesuschrist.org$verseUrl"
                 }
                 item {
                     ResponsiveListHeader(contentPadding = firstItemPadding()) {
-                        Text(text = stringResource(R.string.VerseOfTheDay), fontSize = 18.sp, color = Color(0xFFAFEEFC))
+                        Text(
+                            text = stringResource(R.string.VerseOfTheDay),
+                            fontSize = 18.sp,
+                            color = Color(0xFFAFEEFC)
+                        )
                     }
                 }
                 item {
-                    Text(text = verseText, fontFamily = ensign, fontSize = 18.sp)
+                    Text(text = verseText, fontFamily = ensign, fontSize = 16.sp)
                 }
                 item {
-                    Text(text = verseTitle, fontSize = 16.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Left, color = Color(0xFFAFEEFC), modifier = Modifier
-                        .fillMaxSize()
-                        .padding(vertical = 5.dp))
+                    Text(
+                        text = verseTitle,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Left,
+                        color = Color(0xFFAFEEFC),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(vertical = 5.dp)
+                    )
                 }
                 item {
                     var showTrueDialog by remember { mutableStateOf(false) }
                     var showFalseDialog by remember { mutableStateOf(false) }
-                    Box(modifier = Modifier. fillMaxSize(), contentAlignment = Alignment.TopStart) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.TopStart
+                    ) {
                         CompactChip(label = {
                             Text(
                                 text = stringResource(R.string.OpenOnPhone),
@@ -752,34 +850,55 @@ fun OfTheDayScreen(context: Context, type: String) {
                             backgroundColor = Color(0xFF226083),
                         ), onClick = {
                             openUrlOnPhone(context, verseUrl) { success ->
-                                if(success) {
+                                if (success) {
                                     showTrueDialog = true
                                 } else {
                                     showFalseDialog = true
                                 }
                             }
                         })
-                        Dialog(showDialog = showTrueDialog, onDismissRequest = { showTrueDialog = false }) {
+                        Dialog(
+                            showDialog = showTrueDialog,
+                            onDismissRequest = { showTrueDialog = false }) {
                             Confirmation(
                                 onTimeout = { showTrueDialog = false },
-                                icon = { Icon(Icons.Default.PhonelinkRing, contentDescription = "Phone") },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.PhonelinkRing,
+                                        contentDescription = "Phone"
+                                    )
+                                },
                                 durationMillis = 3000,
                             ) {
-                                Text(text = stringResource(R.string.TrueOpenOnPhone), textAlign = TextAlign.Center)
+                                Text(
+                                    text = stringResource(R.string.TrueOpenOnPhone),
+                                    textAlign = TextAlign.Center
+                                )
                             }
                         }
-                        Dialog(showDialog = showFalseDialog, onDismissRequest = { showFalseDialog = false }) {
+                        Dialog(
+                            showDialog = showFalseDialog,
+                            onDismissRequest = { showFalseDialog = false }) {
                             Confirmation(
                                 onTimeout = { showFalseDialog = false },
-                                icon = { Icon(Icons.Default.PhonelinkRing, contentDescription = "Phone") },
+                                icon = {
+                                    Icon(
+                                        Icons.Default.PhonelinkRing,
+                                        contentDescription = "Phone"
+                                    )
+                                },
                                 durationMillis = 5000,
                             ) {
-                                Text(text = stringResource(R.string.FalseOpenOnPhone), textAlign = TextAlign.Center)
+                                Text(
+                                    text = stringResource(R.string.FalseOpenOnPhone),
+                                    textAlign = TextAlign.Center
+                                )
                             }
                         }
                     }
                 }
             }
+            TimeText()
         }
     }
 }
@@ -894,132 +1013,178 @@ fun ListChapters(context: Context, volume: String, book: String, onShowRead: (vo
     }
     val items = (1..numberOfItems).map { it.toString() }
     val state = rememberPickerState(items.size)
-    ScreenScaffold(scrollState = columnState) {
-        ScalingLazyColumn(
-            columnState = columnState,
-            modifier = Modifier.fillMaxSize()
-        ) {
-            item {
-                ResponsiveListHeader(contentPadding = firstItemPadding()) {
-                    Text(text = getJson(context, "$.title","$volume/$book.json", 0).toString(), fontSize = 18.sp, textAlign = TextAlign.Center)
-                }
-            }
-                if (type == "Chapter" || type == "Section") {
-                    val grid = settingsGetValue(settings, "grid", "false").toString().toBoolean()
-                    if (grid) {
-                        val itemsPerRow = 5
-                        val numberOfRows = (numberOfItems + itemsPerRow - 1) / itemsPerRow
-                        for (rowIndex in 0 until numberOfRows) {
-                            item {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(0.dp)
-                                        .height(47.dp),
-                                    horizontalArrangement = Arrangement.SpaceEvenly,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    for (colIndex in 0 until itemsPerRow) {
-                                        val itemIndex = rowIndex * itemsPerRow + colIndex
-                                        if (itemIndex < numberOfItems) {
-                                            val padding = when (itemIndex.toString().length) {
-                                                1 -> 10.dp
-                                                2 -> 8.dp
-                                                3 -> 5.dp
-                                                else -> 0.dp
-                                            }
-                                            CompactChip(
-                                                label = {
-                                                    Text(
-                                                        (itemIndex + 1).toString(),
-                                                        fontSize = 11.sp
-                                                    )
-                                                },
-                                                modifier = Modifier.padding(0.dp),
-                                                contentPadding = PaddingValues(padding),
-                                                colors = ChipDefaults.secondaryChipColors(),
-                                                onClick = {
-                                                    onShowRead(
-                                                        volume,
-                                                        book,
-                                                        getJson(
-                                                            context,
-                                                            "$.chapters[$itemIndex]['_id']",
-                                                            "$volume/$book.json",
-                                                            0
-                                                        ).toString()
-                                                    )
-                                                }
-                                            )
-                                        } else {
-                                            Spacer(modifier = Modifier.width(31.dp))
+    if (type == "Chapter" || type == "Section") {
+        val grid = settingsGetValue(settings, "grid", "false").toString().toBoolean()
+        if (grid) {
+            ScreenScaffold(scrollState = columnState) {
+                ScalingLazyColumn(
+                    columnState = columnState,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    item {
+                        ResponsiveListHeader(contentPadding = firstItemPadding()) {
+                            Text(
+                                text = getJson(
+                                    context,
+                                    "$.title",
+                                    "$volume/$book.json",
+                                    0
+                                ).toString(), fontSize = 18.sp, textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    val itemsPerRow = 5
+                    val numberOfRows = (numberOfItems + itemsPerRow - 1) / itemsPerRow
+                    for (rowIndex in 0 until numberOfRows) {
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(0.dp)
+                                    .height(47.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                for (colIndex in 0 until itemsPerRow) {
+                                    val itemIndex = rowIndex * itemsPerRow + colIndex
+                                    if (itemIndex < numberOfItems) {
+                                        val padding = when (itemIndex.toString().length) {
+                                            1 -> 10.dp
+                                            2 -> 8.dp
+                                            3 -> 5.dp
+                                            else -> 0.dp
                                         }
+                                        CompactChip(
+                                            label = {
+                                                Text(
+                                                    (itemIndex + 1).toString(),
+                                                    fontSize = 11.sp
+                                                )
+                                            },
+                                            modifier = Modifier.padding(0.dp),
+                                            contentPadding = PaddingValues(padding),
+                                            colors = ChipDefaults.secondaryChipColors(),
+                                            onClick = {
+                                                onShowRead(
+                                                    volume,
+                                                    book,
+                                                    getJson(
+                                                        context,
+                                                        "$.chapters[$itemIndex]['_id']",
+                                                        "$volume/$book.json",
+                                                        0
+                                                    ).toString()
+                                                )
+                                            }
+                                        )
+                                    } else {
+                                        Spacer(modifier = Modifier.width(31.dp))
                                     }
                                 }
                             }
                         }
-                    } else {
-                        item {
-                            val contentDescription by remember { derivedStateOf { "${state.selectedOption + 1}" } }
-                            Box(modifier = Modifier. fillMaxSize(),
-                                contentAlignment = Alignment.Center ) {
-                                Picker(modifier = Modifier.size(100.dp, 100.dp),
-                                    state = state,
-                                    contentDescription = contentDescription) {
-                                    Text(items[it], color = if (state.selectedOption == it) MaterialTheme.colors.primary else MaterialTheme.colors.onSurfaceVariant, fontSize = 17.sp)
-                                }
-                            }
-                        }
-                        item {
-                            Button(
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter),
-                                buttonSize = ButtonSize.Small,
-                                imageVector = Icons.Default.Check,
-                                contentDescription = "OK",
-                                onClick = {
-                                    onShowRead(
-                                        volume,
-                                        book,
-                                        getJson(
-                                            context,
-                                            "$.chapters[${state.selectedOption}]['_id']",
-                                            "$volume/$book.json",
-                                            0
-                                        ).toString()
-                                    )
-                                }
-                            )
-                        }
-                    }
-                } else if (type == "Page") {
-                    for (i in 0..<getJson(context, "$.pages", "$volume/$book.json", 2).toString()
-                        .toInt()) {
-                        item {
-                            val chapter = getJson(
-                                context,
-                                "$.pages[$i]['_id']",
-                                "$volume/$book.json",
-                                0
-                            ).toString()
-                            Chip(label = {
-                                Text(
-                                    text = getJson(
-                                        context,
-                                        "$.chapter.title",
-                                        "$volume/$book/$chapter.json",
-                                        0
-                                    ).toString()
-                                )
-                            },
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(vertical = 2.dp),
-                                colors = ChipDefaults.secondaryChipColors(),
-                                onClick = { onShowRead(volume, book, chapter) })
-                        }
                     }
                 }
+            }
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    modifier = Modifier.align(Alignment.TopCenter)
+                        .padding(top = 30.dp),
+                    text = getJson(
+                        context,
+                        "$.title",
+                        "$volume/$book.json",
+                        0
+                    ).toString(), fontSize = 18.sp, textAlign = TextAlign.Center
+                )
+                val contentDescription by remember { derivedStateOf { "${state.selectedOption + 1}" } }
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Picker(
+                        modifier = Modifier.size(100.dp, 100.dp),
+                        state = state,
+                        contentDescription = contentDescription
+                    ) {
+                        Text(
+                            items[it],
+                            color = if (state.selectedOption == it) MaterialTheme.colors.primary else MaterialTheme.colors.onSurfaceVariant,
+                            fontSize = 17.sp
+                        )
+                    }
+                    Button(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 10.dp),
+                        buttonSize = ButtonSize.Small,
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "OK",
+                        onClick = {
+                            onShowRead(
+                                volume,
+                                book,
+                                getJson(
+                                    context,
+                                    "$.chapters[${state.selectedOption}]['_id']",
+                                    "$volume/$book.json",
+                                    0
+                                ).toString()
+                            )
+                        }
+                    )
+                }
+            }
+        }
+    } else if (type == "Page") {
+        ScreenScaffold(scrollState = columnState) {
+            ScalingLazyColumn(
+                columnState = columnState,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item {
+                    ResponsiveListHeader(contentPadding = firstItemPadding()) {
+                        Text(
+                            text = getJson(
+                                context,
+                                "$.title",
+                                "$volume/$book.json",
+                                0
+                            ).toString(), fontSize = 18.sp, textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                for (i in 0..<getJson(context, "$.pages", "$volume/$book.json", 2).toString()
+                    .toInt()) {
+                    item {
+                        val chapter = getJson(
+                            context,
+                            "$.pages[$i]['_id']",
+                            "$volume/$book.json",
+                            0
+                        ).toString()
+                        Chip(label = {
+                            Text(
+                                text = getJson(
+                                    context,
+                                    "$.chapter.title",
+                                    "$volume/$book/$chapter.json",
+                                    0
+                                ).toString()
+                            )
+                        },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(vertical = 2.dp),
+                            colors = ChipDefaults.secondaryChipColors(),
+                            onClick = { onShowRead(volume, book, chapter) })
+                    }
+                }
+            }
         }
     }
 }
@@ -1078,7 +1243,7 @@ fun Modifier.customLongPressGesture(
 @SuppressLint("DiscouragedApi")
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
-fun ReadChapter(context: Context, volume: String, book: String, chapter: String, onShowRead: (volume: String, books: String, chapter: String) -> Unit, settings: SharedPreferences, onShowFootnote: (volume: String, books: String, chapter: String, verse: String, footnote: String) -> Unit){
+fun ReadChapter(context: Context, window: Window, volume: String, book: String, chapter: String, onShowRead: (volume: String, books: String, chapter: String) -> Unit, settings: SharedPreferences, onShowFootnote: (volume: String, books: String, chapter: String, verse: String, footnote: String) -> Unit){
     val ensign = FontFamily(
         Font(R.font.mckaybroldslat_regular, FontWeight.Normal),
         Font(R.font.mckaybroldslat_bold, FontWeight.Bold),
@@ -1096,181 +1261,190 @@ fun ReadChapter(context: Context, volume: String, book: String, chapter: String,
         delta
     }
     val haptics = LocalHapticFeedback.current
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .scrollable(
-            orientation = Orientation.Horizontal,
-            state = scrollState
-        )
-        .customLongPressGesture(longPressDurationMillis = 1000L) {
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+
+    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    DisposableEffect(Unit) {
+        onDispose {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
-    ){
-        ScreenScaffold(scrollState = columnState) {
-            ScalingLazyColumn(
-                columnState = columnState,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                val type = getJson(context, "$.chapter.delineation", "$volume/$book/$chapter.json", 0).toString()
-                val number = getJson(context, "$.chapter.number","$volume/$book/$chapter.json", 1).toString().toInt()
-                if (type == "Chapter" || type == "Section") {
-                    if (number == 1 && volume == "bookofmormon") {
-                        val subtitle = getJson(context, "$.subtitle", "$volume/$book.json", 0).toString()
-                        val summary = getJson(context, "$.summary", "$volume/$book.json", 0).toString()
-                        item {
-                            Text(text = getJson(context, "$.titleOfficial", "$volume/$book.json", 0).toString().uppercase(), fontFamily = ensign, fontSize = 20.sp, textAlign = TextAlign.Center)
-                            Spacer(modifier = Modifier.height(10.dp))
-                        }
-                        if (subtitle != "") {
+    }
+    BlackScreenWithResettableTimeout(60_000) {
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .scrollable(
+                orientation = Orientation.Horizontal,
+                state = scrollState
+            )
+            .customLongPressGesture(longPressDurationMillis = 1000L) {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+        ){
+            ScreenScaffold(scrollState = columnState) {
+                ScalingLazyColumn(
+                    columnState = columnState,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    val type = getJson(context, "$.chapter.delineation", "$volume/$book/$chapter.json", 0).toString()
+                    val number = getJson(context, "$.chapter.number","$volume/$book/$chapter.json", 1).toString().toInt()
+                    if (type == "Chapter" || type == "Section") {
+                        if (number == 1 && volume == "bookofmormon") {
+                            val subtitle = getJson(context, "$.subtitle", "$volume/$book.json", 0).toString()
+                            val summary = getJson(context, "$.summary", "$volume/$book.json", 0).toString()
                             item {
-                                Text(text = subtitle.uppercase(), fontFamily = ensign, fontSize = 12.sp, textAlign = TextAlign.Center)
+                                Text(text = getJson(context, "$.titleOfficial", "$volume/$book.json", 0).toString().uppercase(), fontFamily = ensign, fontSize = 20.sp, textAlign = TextAlign.Center)
+                                Spacer(modifier = Modifier.height(10.dp))
                             }
+                            if (subtitle != "") {
+                                item {
+                                    Text(text = subtitle.uppercase(), fontFamily = ensign, fontSize = 12.sp, textAlign = TextAlign.Center)
+                                }
+                            }
+                            item {
+                                Spacer(modifier = Modifier.height(5.dp))
+                            }
+                            if (summary != "") {
+                                item {
+                                    Text(text = summary, fontFamily = ensign)
+                                }
+                                item {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                }
+                            }
+                        }
+                        if (volume == "bookofmormon") {
+                            val chapterAugmentations = getJson(context, "$.chapter.chapterAugmentations","$volume/$book/$chapter.json", 2).toString().toInt()
+                            if (chapterAugmentations > 0) {
+                                for (i in 0..<chapterAugmentations) {
+                                    val text = getJson(context, "$.chapter.chapterAugmentations[$i].text","$volume/$book/$chapter.json", 0).toString()
+                                    val subtext = getJson(context, "$.chapter.chapterAugmentations[$i].subtext","$volume/$book/$chapter.json", 0).toString()
+                                    if (text != "") {
+                                        item {
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                        }
+                                        item {
+                                            Text(text = text, fontFamily = ensign)
+                                        }
+                                        item {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                        }
+                                        if (subtext != "") {
+                                            item {
+                                                Text(text = subtext, fontFamily = ensign, fontStyle = FontStyle.Italic)
+                                            }
+                                            item {
+                                                Spacer(modifier = Modifier.height(5.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        item {
+                            Text(text = "${type.uppercase()} $number", fontFamily = ensign, fontSize = 18.sp)
+                            Spacer(modifier = Modifier.height(25.dp))
+                        }
+                        item {
+                            Text(text = getJson(context, "$.chapter.summary", "$volume/$book/$chapter.json", 0).toString(), fontFamily = ensign, fontStyle = FontStyle.Italic)
                         }
                         item {
                             Spacer(modifier = Modifier.height(5.dp))
                         }
-                        if (summary != "") {
-                            item {
-                                Text(text = summary, fontFamily = ensign)
-                            }
-                            item {
-                                Spacer(modifier = Modifier.height(10.dp))
-                            }
-                        }
-                    }
-                    if (volume == "bookofmormon") {
-                        val chapterAugmentations = getJson(context, "$.chapter.chapterAugmentations","$volume/$book/$chapter.json", 2).toString().toInt()
-                        if (chapterAugmentations > 0) {
-                            for (i in 0..<chapterAugmentations) {
-                                val text = getJson(context, "$.chapter.chapterAugmentations[$i].text","$volume/$book/$chapter.json", 0).toString()
-                                val subtext = getJson(context, "$.chapter.chapterAugmentations[$i].subtext","$volume/$book/$chapter.json", 0).toString()
-                                if (text != "") {
-                                    item {
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                    }
-                                    item {
-                                        Text(text = text, fontFamily = ensign)
-                                    }
-                                    item {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                    }
-                                    if (subtext != "") {
-                                        item {
-                                            Text(text = subtext, fontFamily = ensign, fontStyle = FontStyle.Italic)
+                        val addFootnotes = settingsGetValue(settings,"footnote", "true").toString()
+                        for (i in 0..<getJson(context, "$.chapter.verses","$volume/$book/$chapter.json", 2).toString().toInt()) {
+                            val verse = (i + 1).toString()
+                            val fixVerse = buildAnnotatedString {
+                                append("$verse ")
+                                addStyle(SpanStyle(fontWeight = FontWeight.Bold), 0, verse.length)
+                                val text = getJson(context, "$.chapter.verses[$i].text","$volume/$book/$chapter.json", 0).toString()
+                                if (addFootnotes == "true") {
+                                    val footnote = getJson(context, "$.chapter.verses[$i].footnotes","$volume/$book/$chapter.json", 2).toString().toInt()
+                                    if (footnote > 0) {
+                                        var textI = 0
+                                        for (ii in 0..<footnote) {
+                                            val start = getJson(context, "$.chapter.verses[$i].footnotes[$ii].start","$volume/$book/$chapter.json", 1).toString().toInt()
+                                            val end = getJson(context, "$.chapter.verses[$i].footnotes[$ii].end","$volume/$book/$chapter.json", 1).toString().toInt()
+                                            append(text.substring(textI, start))
+                                            textI = end
+                                            pushStyle(SpanStyle(baselineShift = BaselineShift.Superscript, fontSize = 14.sp * 0.75, fontStyle = FontStyle.Italic, color = Color.hsl(187F, 0.62F, 0.74F)))
+                                            val letter = ('a'.code + (ii % 26)).toChar()
+                                            append(letter)
+                                            pop()
+                                            pushStyle(SpanStyle(color = Color.hsl(190F, 0.76F, 0.59F)))
+                                            val note = text.substring(start, end)
+                                            withLink(LinkAnnotation.Clickable("footnote", linkInteractionListener = {
+                                                onShowFootnote(volume, book, chapter, i.toString(), ii.toString())
+                                            })){
+                                                append(note)
+                                            }
+                                            pop()
                                         }
-                                        item {
-                                            Spacer(modifier = Modifier.height(5.dp))
-                                        }
+                                        append(text.substring(textI, text.length))
+                                    } else {
+                                        append(text)
                                     }
-                                }
-                            }
-                        }
-                    }
-                    item {
-                        Text(text = "${type.uppercase()} $number", fontFamily = ensign, fontSize = 18.sp)
-                        Spacer(modifier = Modifier.height(25.dp))
-                    }
-                    item {
-                        Text(text = getJson(context, "$.chapter.summary", "$volume/$book/$chapter.json", 0).toString(), fontFamily = ensign, fontStyle = FontStyle.Italic)
-                    }
-                    item {
-                        Spacer(modifier = Modifier.height(5.dp))
-                    }
-                    val addFootnotes = settingsGetValue(settings,"footnote", "true").toString()
-                    for (i in 0..<getJson(context, "$.chapter.verses","$volume/$book/$chapter.json", 2).toString().toInt()) {
-                        val verse = (i + 1).toString()
-                        val fixVerse = buildAnnotatedString {
-                            append("$verse ")
-                            addStyle(SpanStyle(fontWeight = FontWeight.Bold), 0, verse.length)
-                            val text = getJson(context, "$.chapter.verses[$i].text","$volume/$book/$chapter.json", 0).toString()
-                            if (addFootnotes == "true") {
-                                val footnote = getJson(context, "$.chapter.verses[$i].footnotes","$volume/$book/$chapter.json", 2).toString().toInt()
-                                if (footnote > 0) {
-                                    var textI = 0
-                                    for (ii in 0..<footnote) {
-                                        val start = getJson(context, "$.chapter.verses[$i].footnotes[$ii].start","$volume/$book/$chapter.json", 1).toString().toInt()
-                                        val end = getJson(context, "$.chapter.verses[$i].footnotes[$ii].end","$volume/$book/$chapter.json", 1).toString().toInt()
-                                        append(text.substring(textI, start))
-                                        textI = end
-                                        pushStyle(SpanStyle(baselineShift = BaselineShift.Superscript, fontSize = 14.sp * 0.75, fontStyle = FontStyle.Italic, color = Color.hsl(187F, 0.62F, 0.74F)))
-                                        val letter = ('a'.code + (ii % 26)).toChar()
-                                        append(letter)
-                                        pop()
-                                        pushStyle(SpanStyle(color = Color.hsl(190F, 0.76F, 0.59F)))
-                                        val note = text.substring(start, end)
-                                        withLink(LinkAnnotation.Clickable("footnote", linkInteractionListener = {
-                                            onShowFootnote(volume, book, chapter, i.toString(), ii.toString())
-                                        })){
-                                            append(note)
-                                        }
-                                        pop()
-                                    }
-                                    append(text.substring(textI, text.length))
                                 } else {
                                     append(text)
                                 }
-                            } else {
-                                append(text)
-                            }
-                        }
-                        item {
-                            Text(text = fixVerse, fontFamily = ensign)
-                        }
-                    }
-                } else if (type == "Page") {
-                    val typeOfPage = getJson(context, "$.chapter.title", "$volume/$book/$chapter.json", 0).toString()
-                    if (typeOfPage == "Title Page" || typeOfPage == "The Book of Mormon") {
-                        item {
-                            Text(text = getJson(context, "$.volume.titleOfficial", "$volume/$book/$chapter.json", 0).toString().uppercase(), fontFamily = ensign, fontSize = 22.sp, textAlign = TextAlign.Center)
-                        }
-                        item {
-                            Text(text = getJson(context, "$.chapter.subtitle", "$volume/$book/$chapter.json", 0).toString().uppercase(), fontFamily = ensign, fontSize = 12.sp, textAlign = TextAlign.Center)
-                        }
-                    } else {
-                        item {
-                            Text(text = getJson(context, "$.chapter.title", "$volume/$book/$chapter.json", 0).toString().uppercase(), fontFamily = ensign, fontSize = 16.sp, textAlign = TextAlign.Center)
-                        }
-                    }
-                    item {
-                        Spacer(modifier = Modifier.height(10.dp))
-                    }
-                    for (i in 0..<getJson(context, "$.chapter.body", "$volume/$book/$chapter.json", 2).toString().toInt()) {
-                        val image = getJson(context, "$.chapter.body[$i].type", "$volume/$book/$chapter.json", 0).toString()
-                        if (image == "image") {
-                            val title = getJson(context, "$.chapter.body[$i].title", "$volume/$book/$chapter.json", 0).toString()
-                            val author = getJson(context, "$.chapter.body[$i].author", "$volume/$book/$chapter.json", 0).toString()
-                            val caption = getJson(context, "$.chapter.body[$i].caption", "$volume/$book/$chapter.json", 0).toString()
-                            val src = context.resources.getIdentifier(getJson(context, "$.chapter.body[$i].image", "$volume/$book/$chapter.json", 0).toString().replace(".webp", ""), "drawable", context.packageName)
-                            item {
-                                Image(painter = painterResource(id = src), contentDescription = title)
                             }
                             item {
-                                Text(text = title, fontFamily = ensign, fontStyle = FontStyle.Italic, textAlign = TextAlign.Left)
+                                Text(text = fixVerse, fontFamily = ensign)
+                            }
+                        }
+                    } else if (type == "Page") {
+                        val typeOfPage = getJson(context, "$.chapter.title", "$volume/$book/$chapter.json", 0).toString()
+                        if (typeOfPage == "Title Page" || typeOfPage == "The Book of Mormon") {
+                            item {
+                                Text(text = getJson(context, "$.volume.titleOfficial", "$volume/$book/$chapter.json", 0).toString().uppercase(), fontFamily = ensign, fontSize = 22.sp, textAlign = TextAlign.Center)
                             }
                             item {
-                                Text(text = author, fontFamily = ensign, textAlign = TextAlign.Left)
-                            }
-                            if (caption != "") {
-                                item {
-                                    Text(text = caption, fontFamily = ensign, textAlign = TextAlign.Left)
-                                }
-                            }
-                            item {
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(text = getJson(context, "$.chapter.subtitle", "$volume/$book/$chapter.json", 0).toString().uppercase(), fontFamily = ensign, fontSize = 12.sp, textAlign = TextAlign.Center)
                             }
                         } else {
                             item {
-                                Text(text = getJson(context, "$.chapter.body[$i]", "$volume/$book/$chapter.json", 0).toString(), fontFamily = ensign, fontSize = 12.sp, textAlign = TextAlign.Center)
+                                Text(text = getJson(context, "$.chapter.title", "$volume/$book/$chapter.json", 0).toString().uppercase(), fontFamily = ensign, fontSize = 16.sp, textAlign = TextAlign.Center)
                             }
                         }
-
-                    }
-                    item {
-                        Spacer(modifier = Modifier.height(5.dp))
-                    }
-                    for (i in 0..<getJson(context, "$.chapter.footer", "$volume/$book/$chapter.json", 2).toString().toInt()) {
                         item {
-                            Text(text = getJson(context, "$.chapter.footer[$i]", "$volume/$book/$chapter.json", 0).toString(), fontFamily = ensign, fontSize = 12.sp, textAlign = TextAlign.Center)
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+                        for (i in 0..<getJson(context, "$.chapter.body", "$volume/$book/$chapter.json", 2).toString().toInt()) {
+                            val image = getJson(context, "$.chapter.body[$i].type", "$volume/$book/$chapter.json", 0).toString()
+                            if (image == "image") {
+                                val title = getJson(context, "$.chapter.body[$i].title", "$volume/$book/$chapter.json", 0).toString()
+                                val author = getJson(context, "$.chapter.body[$i].author", "$volume/$book/$chapter.json", 0).toString()
+                                val caption = getJson(context, "$.chapter.body[$i].caption", "$volume/$book/$chapter.json", 0).toString()
+                                val src = context.resources.getIdentifier(getJson(context, "$.chapter.body[$i].image", "$volume/$book/$chapter.json", 0).toString().replace(".webp", ""), "drawable", context.packageName)
+                                item {
+                                    Image(painter = painterResource(id = src), contentDescription = title)
+                                }
+                                item {
+                                    Text(text = title, fontFamily = ensign, fontStyle = FontStyle.Italic, textAlign = TextAlign.Left)
+                                }
+                                item {
+                                    Text(text = author, fontFamily = ensign, textAlign = TextAlign.Left)
+                                }
+                                if (caption != "") {
+                                    item {
+                                        Text(text = caption, fontFamily = ensign, textAlign = TextAlign.Left)
+                                    }
+                                }
+                                item {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                }
+                            } else {
+                                item {
+                                    Text(text = getJson(context, "$.chapter.body[$i]", "$volume/$book/$chapter.json", 0).toString(), fontFamily = ensign, fontSize = 12.sp, textAlign = TextAlign.Center)
+                                }
+                            }
+
+                        }
+                        item {
+                            Spacer(modifier = Modifier.height(5.dp))
+                        }
+                        for (i in 0..<getJson(context, "$.chapter.footer", "$volume/$book/$chapter.json", 2).toString().toInt()) {
+                            item {
+                                Text(text = getJson(context, "$.chapter.footer[$i]", "$volume/$book/$chapter.json", 0).toString(), fontFamily = ensign, fontSize = 12.sp, textAlign = TextAlign.Center)
+                            }
                         }
                     }
                 }
@@ -1590,4 +1764,29 @@ fun shimmerBrush(showShimmer: Boolean = true,targetValue:Float = 1000f): Brush {
             end = Offset.Zero
         )
     }
+}
+
+@Composable
+fun BlackScreenWithResettableTimeout(time: Long, content: @Composable () -> Unit) {
+    var showBlackScreen by remember { mutableStateOf(false) }
+    var interactionDetected by remember { mutableStateOf(false) }
+    LaunchedEffect(interactionDetected) {
+        interactionDetected = false
+        showBlackScreen = false
+        delay(time)
+        showBlackScreen = true
+    }
+    content()
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(if (showBlackScreen) Color.Black else Color.Transparent)
+            .pointerInput(Unit) {
+                detectTapGestures { interactionDetected = true }
+            }
+            .onRotaryScrollEvent {
+                interactionDetected = true
+                true
+            }
+    )
 }
