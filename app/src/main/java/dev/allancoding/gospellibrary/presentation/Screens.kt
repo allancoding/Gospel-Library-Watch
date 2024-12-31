@@ -8,10 +8,7 @@ import android.view.Window
 import android.view.WindowManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberScrollableState
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +32,7 @@ import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.PhonelinkRing
+import androidx.compose.material.icons.filled.WatchOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -43,15 +41,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -99,7 +94,6 @@ import com.google.android.horologist.compose.material.ResponsiveListHeader
 import com.google.android.horologist.compose.material.ToggleChip
 import com.google.android.horologist.compose.material.ToggleChipToggleControl
 import dev.allancoding.gospellibrary.R
-import kotlinx.coroutines.delay
 import kotlin.math.abs
 
 
@@ -297,33 +291,35 @@ fun OfTheDayScreen(context: Context, type: String) {
                         )
                     }
                 }
-                item {
-                    Box(
-                        modifier = Modifier.fillMaxSize().padding(vertical = 5.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val showShimmer = remember { mutableStateOf(true) }
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(quoteImgUrl)
-                                .crossfade(1000)
-                                .build(),
-                            error = painterResource(id = R.drawable.no_internet),
-                            contentDescription = quoteTitle,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(16.dp))
-                                .width(225.dp)
-                                .height(126.5.dp)
-                                .background(
-                                    shimmerBrush(
-                                        targetValue = 1300f,
-                                        showShimmer = showShimmer.value
-                                    )
-                                ),
-                            onError = { showShimmer.value = false },
-                            onSuccess = { showShimmer.value = false },
-                        )
+                if (quoteImgUrl != "") {
+                    item {
+                        Box(
+                            modifier = Modifier.fillMaxSize().padding(vertical = 5.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            val showShimmer = remember { mutableStateOf(true) }
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(quoteImgUrl)
+                                    .crossfade(1000)
+                                    .build(),
+                                error = painterResource(id = R.drawable.no_internet),
+                                contentDescription = quoteTitle,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .width(225.dp)
+                                    .height(126.5.dp)
+                                    .background(
+                                        shimmerBrush(
+                                            targetValue = 1300f,
+                                            showShimmer = showShimmer.value
+                                        )
+                                    ),
+                                onError = { showShimmer.value = false },
+                                onSuccess = { showShimmer.value = false },
+                            )
+                        }
                     }
                 }
                 item {
@@ -924,95 +920,45 @@ fun ReadChapter(
     volume: String,
     book: String,
     chapter: String,
-    onShowRead: (volume: String, books: String, chapter: String) -> Unit,
     settings: SharedPreferences,
-    onShowFootnote: (volume: String, books: String, chapter: String, verse: String, footnote: String) -> Unit
+    onShowFootnote: (volume: String, books: String, chapter: String, verse: String, footnote: String) -> Unit,
+    onShowReadMenu: (volume: String, books: String, chapter: String) -> Unit
 ) {
-    val ensign = FontFamily(
-        Font(R.font.mckaybroldslat_regular, FontWeight.Normal),
-        Font(R.font.mckaybroldslat_bold, FontWeight.Bold),
-        Font(R.font.mckaybroldslat_italic, FontWeight.Normal, FontStyle.Italic),
-        Font(R.font.mckaybroldslat_bolditalic, FontWeight.Bold, FontStyle.Italic)
-    )
-    val columnState = rememberResponsiveColumnState(
-        contentPadding = ScalingLazyColumnDefaults.padding(
-            first = ItemType.Text,
-            last = ItemType.Text
-        ),
-    )
+    val timeOut = settingsGetValue(settings, "screen", "false").toString().toBoolean()
+    if (timeOut) {
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        DisposableEffect(Unit) {
+            onDispose {
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
+    }
     val haptics = LocalHapticFeedback.current
-    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-    DisposableEffect(Unit) {
-        onDispose {
-            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
-    }
-    var showBlackScreen by remember { mutableStateOf(false) }
-    var interactionDetected by remember { mutableStateOf(false) }
-
-    LaunchedEffect(interactionDetected) {
-        interactionDetected = false
-        showBlackScreen = false
-        delay(60_000)
-        showBlackScreen = true
-    }
-    LaunchedEffect(columnState) {
-        snapshotFlow { columnState.isScrollInProgress }.collect { isScrolling ->
-            if (isScrolling) {
-                interactionDetected = true
-            }
-        }
-    }
-    val scrollState = rememberScrollableState { delta ->
-        interactionDetected = true
-        if (abs(delta) > 0) {
-            val nextChapterId = getJson(context, "$.nextChapterId", "$volume/$book/$chapter.json", 0).toString()
-            val prevChapterId = getJson(context, "$.prevChapterId", "$volume/$book/$chapter.json", 0).toString()
-            val nextChapterPath = getJson(context, "$.$nextChapterId.path", "search.json", 0).toString()
-            val prevChapterPath = getJson(context, "$.$prevChapterId.path", "search.json", 0).toString()
-            var newLocation = nextChapterPath.split("/")
-            if (delta > 0) {
-                newLocation = prevChapterPath.split("/")
-            }
-            var newVolume = ""
-            var newBook = ""
-            var newChapter = ""
-            for (i in newLocation.indices) {
-                when (i) {
-                    0 -> {
-                        newVolume = newLocation[i]
-                    }
-                    1 -> {
-                        newBook = newLocation[i]
-                    }
-                    2 -> {
-                        newChapter = newLocation[i]
-                    }
-                }
-            }
-            onShowRead(newVolume, newBook, newChapter)
-        }
-        delta
-    }
     Box(modifier = Modifier
         .fillMaxSize()
-        .scrollable(
-            orientation = Orientation.Horizontal,
-            state = scrollState
-        )
         .customLongPressGesture(longPressDurationMillis = 1000L) {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-        }
-        .pointerInput(Unit) {
-            detectTapGestures {
-                interactionDetected = true
-            }
+            onShowReadMenu(
+                volume,
+                book,
+                chapter)
         }
     ) {
+        val ensign = FontFamily(
+            Font(R.font.mckaybroldslat_regular, FontWeight.Normal),
+            Font(R.font.mckaybroldslat_bold, FontWeight.Bold),
+            Font(R.font.mckaybroldslat_italic, FontWeight.Normal, FontStyle.Italic),
+            Font(R.font.mckaybroldslat_bolditalic, FontWeight.Bold, FontStyle.Italic)
+        )
+        val columnState = rememberResponsiveColumnState(
+            contentPadding = ScalingLazyColumnDefaults.padding(
+                first = ItemType.Text,
+                last = ItemType.Text
+            ),
+        )
         ScreenScaffold(scrollState = columnState) {
             ScalingLazyColumn(
-                columnState = columnState,
-                modifier = Modifier.fillMaxSize()
+                columnState = columnState
             ) {
                 val type = getJson(
                     context,
@@ -1410,12 +1356,64 @@ fun ReadChapter(
             }
         }
     }
-    if (showBlackScreen) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black)
-        )
+}
+
+@OptIn(ExperimentalHorologistApi::class)
+@Composable
+fun ReadMenu(
+    context: Context,
+    settings: SharedPreferences,
+    volume: String,
+    book: String,
+    chapter: String,
+    onShowRead: (volume: String, books: String, chapter: String) -> Unit
+) {
+    val columnState = rememberResponsiveColumnState(
+        contentPadding = ScalingLazyColumnDefaults.padding(
+            first = ItemType.Text,
+            last = ItemType.Text
+        ),
+        verticalArrangement = Arrangement.spacedBy(space = 0.dp, alignment = Alignment.Top),
+    )
+    ScreenScaffold(scrollState = columnState) {
+        ScalingLazyColumn(
+            columnState = columnState,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            item {
+
+            }
+        }
+        val scrollState = rememberScrollableState { delta ->
+            if (abs(delta) > 0) {
+                val nextChapterId = getJson(context, "$.nextChapterId", "$volume/$book/$chapter.json", 0).toString()
+                val prevChapterId = getJson(context, "$.prevChapterId", "$volume/$book/$chapter.json", 0).toString()
+                val nextChapterPath = getJson(context, "$.$nextChapterId.path", "search.json", 0).toString()
+                val prevChapterPath = getJson(context, "$.$prevChapterId.path", "search.json", 0).toString()
+                var newLocation = nextChapterPath.split("/")
+                if (delta > 0) {
+                    newLocation = prevChapterPath.split("/")
+                }
+                var newVolume = ""
+                var newBook = ""
+                var newChapter = ""
+                for (i in newLocation.indices) {
+                    when (i) {
+                        0 -> {
+                            newVolume = newLocation[i]
+                        }
+                        1 -> {
+                            newBook = newLocation[i]
+                        }
+                        2 -> {
+                            newChapter = newLocation[i]
+                        }
+                    }
+                }
+                onShowRead(newVolume, newBook, newChapter)
+            }
+            delta
+        }
     }
 }
 
@@ -1520,8 +1518,8 @@ fun ListSettingsScreen(
                     )
                 }
                 ToggleChip(
-                    label = "Footnotes",
-                    secondaryLabel = "Speeds up rendering",
+                    label = stringResource(R.string.Footnotes),
+                    secondaryLabel = stringResource(R.string.FootnoteLabel),
                     colors = ToggleChipDefaults.toggleChipColors(
                         checkedToggleControlColor = MaterialTheme.colors.primary,
                         uncheckedToggleControlColor = ToggleChipDefaults.SwitchUncheckedIconColor
@@ -1541,13 +1539,16 @@ fun ListSettingsScreen(
                         settingsGetValue(settings, "grid", "false").toString().toBoolean()
                     )
                 }
-                var gridLabel by remember { mutableStateOf("Grid") }
+                var gridLabel by remember { mutableStateOf("") }
                 var icon by remember { mutableStateOf(Icons.Default.GridOn) }
-                gridLabel = if (onGrid) "Grid" else "Spin Selector"
+                val gridText = stringResource(R.string.Grid)
+                val spinText = stringResource(R.string.Spin)
+                val gridLabelText = stringResource(R.string.GridLabel)
+                gridLabel = if (onGrid) gridText else spinText
                 icon = if (onGrid) Icons.Default.GridOn else Icons.AutoMirrored.Filled.List
                 ToggleChip(
                     label = gridLabel,
-                    secondaryLabel = "Chapter Selection",
+                    secondaryLabel = gridLabelText,
                     colors = ToggleChipDefaults.toggleChipColors(
                         checkedToggleControlColor = MaterialTheme.colors.primary,
                         uncheckedToggleControlColor = ToggleChipDefaults.SwitchUncheckedIconColor
@@ -1556,12 +1557,34 @@ fun ListSettingsScreen(
                     onCheckedChanged = { isChecked ->
                         onGrid = isChecked
                         settingsSetValue(settings, "grid", isChecked)
-                        gridLabel = if (isChecked) "Grid" else "Spin Selector"
+                        gridLabel = if (isChecked) gridText else spinText
                         icon =
                             if (isChecked) Icons.Default.GridOn else Icons.AutoMirrored.Filled.List
                     },
                     toggleControl = ToggleChipToggleControl.Switch,
                     icon = icon
+                )
+            }
+            item {
+                var onScreen by remember {
+                    mutableStateOf(
+                        settingsGetValue(settings, "screen", "true").toString().toBoolean()
+                    )
+                }
+                ToggleChip(
+                    label = stringResource(R.string.Screen),
+                    secondaryLabel = stringResource(R.string.ScreenLabel),
+                    colors = ToggleChipDefaults.toggleChipColors(
+                        checkedToggleControlColor = MaterialTheme.colors.primary,
+                        uncheckedToggleControlColor = ToggleChipDefaults.SwitchUncheckedIconColor
+                    ),
+                    checked = onScreen,
+                    onCheckedChanged = { isChecked ->
+                        onScreen = isChecked
+                        settingsSetValue(settings, "screen", isChecked)
+                    },
+                    toggleControl = ToggleChipToggleControl.Switch,
+                    icon = Icons.Default.WatchOff
                 )
             }
             item {

@@ -8,6 +8,13 @@
     <string name="Settings">Settings</string>
     <string name="Scriptures">Scriptures</string>
     <string name="OpenOnPhone">Open on Phone</string>
+    <string name="Footnotes">Footnotes</string>
+    <string name="FootnoteLabel">Speeds up rendering</string>
+    <string name="Grid">Grid</string>
+    <string name="Spin">Spin Selector</string>
+    <string name="GridLabel">Chapter Selection</string>
+    <string name="Screen">Timeout</string>
+    <string name="ScreenLabel">Keep Screen On</string>
     <string name="TrueOpenOnPhone">Successfully opened on phone!</string>
     <string name="FalseOpenOnPhone">Failed to open on phone!\n(You probably don\'t have a phone connected)</string>
     <string name="ClearHistory">Clear Reading History</string>

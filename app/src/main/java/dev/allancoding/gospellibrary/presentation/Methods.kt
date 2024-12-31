@@ -11,7 +11,9 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -30,8 +32,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -59,7 +63,6 @@ import java.net.URL
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.concurrent.thread
-import kotlin.math.abs
 
 fun getOfTheDay(sharedPreferences: SharedPreferences, context: Context, callback: () -> Unit) {
     println("Getting of the day")
@@ -376,6 +379,37 @@ fun shimmerBrush(showShimmer: Boolean = true,targetValue:Float = 1000f): Brush {
             colors = listOf(Color.Transparent, Color.Transparent),
             start = Offset.Zero,
             end = Offset.Zero
+        )
+    }
+}
+
+
+@Composable
+fun BlackScreenWithResettableTimeout(time: Long, content: @Composable () -> Unit) {
+    var showBlackScreen by remember { mutableStateOf(false) }
+    var interactionDetected by remember { mutableStateOf(false) }
+    LaunchedEffect(interactionDetected) {
+        if (interactionDetected) {
+            Log.d("BlackScreen", "Interaction detected, resetting timeout.")
+            interactionDetected = false
+        }
+        showBlackScreen = false
+        delay(time)
+        showBlackScreen = true
+        Log.d("BlackScreen", "Timeout reached, showing black screen.")
+    }
+    content()
+    if (showBlackScreen) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .pointerInput(Unit) {
+                    detectTapGestures {
+                        interactionDetected = true
+                        Log.d("BlackScreen", "User interaction captured?")
+                    }
+                }
         )
     }
 }

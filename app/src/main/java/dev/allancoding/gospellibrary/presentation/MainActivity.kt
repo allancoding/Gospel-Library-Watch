@@ -1,49 +1,18 @@
 package dev.allancoding.gospellibrary.presentation
 
-import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.view.Window
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.sp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.navigation.NavOptions
-import androidx.wear.compose.material.ChipDefaults
-import androidx.wear.compose.material.CompactChip
-import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Scaffold
-import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
-import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.compose.layout.ScalingLazyColumn
-import com.google.android.horologist.compose.layout.ScalingLazyColumnDefaults
-import com.google.android.horologist.compose.layout.ScalingLazyColumnDefaults.ItemType
-import com.google.android.horologist.compose.layout.ScreenScaffold
-import com.google.android.horologist.compose.layout.rememberResponsiveColumnState
-import com.google.android.horologist.compose.material.Chip
-import com.google.android.horologist.compose.material.ListHeaderDefaults.firstItemPadding
-import com.google.android.horologist.compose.material.ResponsiveListHeader
-import dev.allancoding.gospellibrary.R
 import dev.allancoding.gospellibrary.presentation.theme.GospelLibraryTheme
 
 class MainActivity : ComponentActivity() {
@@ -128,16 +97,13 @@ fun WearApp(settings: SharedPreferences, context: MainActivity, window: Window) 
                 AppScaffold(timeText = false) {
                     if (volumeId != null && bookId != null && chapterId != null) {
                         settingsSetValue(settings, "saveLocation", "books/$volumeId/$bookId/$chapterId")
-                        ReadChapter(context, window, volumeId, bookId, chapterId, onShowRead = { volumeId, bookId, chapterId ->
-                            navController.navigate(
-                                route = "books/$volumeId/$bookId/$chapterId",
-                                navOptions = NavOptions.Builder()
-                                    .setPopUpTo("books/$volumeId/$bookId/$chapterId", inclusive = true)
-                                    .build()
-                            )
-                        }, settings, onShowFootnote = { volumeId, bookId, chapterId, verseId, footnoteId ->
-                            navController.navigate("books/$volumeId/$bookId/$chapterId/$verseId/$footnoteId")
-                        })
+                        ReadChapter(context, window, volumeId, bookId, chapterId, settings,
+                            onShowFootnote = { volumeId, bookId, chapterId, verseId, footnoteId ->
+                                navController.navigate("books/$volumeId/$bookId/$chapterId/$verseId/$footnoteId")
+                            }, onShowReadMenu = { volumeId, bookId, chapterId ->
+                                navController.navigate("books/$volumeId/$bookId/$chapterId/menu")
+                            }
+                        )
                     }
                 }
             }
@@ -150,6 +116,24 @@ fun WearApp(settings: SharedPreferences, context: MainActivity, window: Window) 
                 AppScaffold(timeText = true) {
                     if (bookId != null && chapterId != null && volumeId != null && verseId != null && footnoteId != null) {
                         ShowFootnote(context, volumeId, bookId, chapterId, verseId, footnoteId)
+                    }
+                }
+            }
+            composable("books/{volumeId}/{bookId}/{chapterId}/{verseId}/menu") { backStackEntry ->
+                val volumeId = backStackEntry.arguments?.getString("volumeId")
+                val bookId = backStackEntry.arguments?.getString("bookId")
+                val chapterId = backStackEntry.arguments?.getString("chapterId")
+                AppScaffold(timeText = true) {
+                    if (bookId != null && chapterId != null && volumeId != null ) {
+                        ReadMenu(context, settings, volumeId, bookId, chapterId,
+                            onShowRead = { volumeId, bookId, chapterId ->
+                                navController.navigate(
+                                    route = "books/$volumeId/$bookId/$chapterId",
+                                    navOptions = NavOptions.Builder()
+                                        .setPopUpTo("books/$volumeId/$bookId/$chapterId", inclusive = true)
+                                        .build()
+                                )
+                            })
                     }
                 }
             }
