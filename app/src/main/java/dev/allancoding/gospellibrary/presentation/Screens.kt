@@ -287,7 +287,7 @@ fun OfTheDayScreen(context: Context, type: String) {
                 item {
                     ResponsiveListHeader(contentPadding = firstItemPadding()) {
                         Text(
-                            text = stringResource(R.string.VerseOfTheDay),
+                            text = stringResource(R.string.QuoteOfTheDay),
                             fontSize = 18.sp,
                             color = Color(0xFFF8A0B2)
                         )

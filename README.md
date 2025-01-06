@@ -10,11 +10,16 @@ The scriptures are used from this repository: https://github.com/allancoding/scr
 
 ## Screenshots
 
-<img src="screenshots/home.png" alt="Home" height="300">
-<img src="screenshots/scriptures.png" alt="Scriptures" height="300">
-<img src="screenshots/chapters.png" alt="Chapters" height="300">
-<img src="screenshots/read.png" alt="Read" height="300">
-<img src="screenshots/settings.png" alt="Settings" height="300">
+<img src="screenshots/home.png" alt="Home" height="454">
+<img src="screenshots/home2.png" alt="Home2" height="454">
+<img src="screenshots/quote.png" alt="Quote" height="454">
+<img src="screenshots/verse.png" alt="Verse" height="454">
+<img src="screenshots/scriptures.png" alt="Scriptures" height="454">
+<img src="screenshots/chapters.png" alt="Chapters" height="454">
+<img src="screenshots/chapters2.png" alt="Chapters2" height="454">
+<img src="screenshots/read.png" alt="Read" height="454">
+<img src="screenshots/settings.png" alt="Settings" height="454">
+<img src="screenshots/settings2.png" alt="Settings2" height="454">
 
 ## Installation
 
