@@ -119,7 +119,7 @@ fun WearApp(settings: SharedPreferences, context: MainActivity, window: Window) 
                     }
                 }
             }
-            composable("books/{volumeId}/{bookId}/{chapterId}/{verseId}/menu") { backStackEntry ->
+            composable("books/{volumeId}/{bookId}/{chapterId}/menu") { backStackEntry ->
                 val volumeId = backStackEntry.arguments?.getString("volumeId")
                 val bookId = backStackEntry.arguments?.getString("bookId")
                 val chapterId = backStackEntry.arguments?.getString("chapterId")

@@ -11,10 +11,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,10 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.rotary.onRotaryScrollEvent
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -65,7 +58,6 @@ import java.time.format.DateTimeFormatter
 import kotlin.concurrent.thread
 
 fun getOfTheDay(sharedPreferences: SharedPreferences, context: Context, callback: () -> Unit) {
-    println("Getting of the day")
     CoroutineScope(Dispatchers.IO).launch {
         val ofDayApi = "https://multimedia-audience-delivery.churchofjesuschrist.org/ws/mobile-mad/v1/general"
         val currentDate = LocalDate.now()
@@ -383,7 +375,7 @@ fun shimmerBrush(showShimmer: Boolean = true,targetValue:Float = 1000f): Brush {
     }
 }
 
-
+@Suppress("unused")
 @Composable
 fun BlackScreenWithResettableTimeout(time: Long, content: @Composable () -> Unit) {
     var showBlackScreen by remember { mutableStateOf(false) }

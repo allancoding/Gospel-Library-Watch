@@ -8,7 +8,6 @@ import android.view.Window
 import android.view.WindowManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +25,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GridOn
@@ -71,6 +72,8 @@ import androidx.wear.compose.material.CompactChip
 import androidx.wear.compose.material.Icon
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Picker
+import androidx.wear.compose.material.Switch
+import androidx.wear.compose.material.SwitchDefaults
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
 import androidx.wear.compose.material.ToggleChipDefaults
@@ -94,7 +97,6 @@ import com.google.android.horologist.compose.material.ResponsiveListHeader
 import com.google.android.horologist.compose.material.ToggleChip
 import com.google.android.horologist.compose.material.ToggleChipToggleControl
 import dev.allancoding.gospellibrary.R
-import kotlin.math.abs
 
 
 @OptIn(ExperimentalHorologistApi::class)
@@ -911,6 +913,7 @@ fun ListChapters(
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
 @SuppressLint("DiscouragedApi")
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
@@ -938,10 +941,7 @@ fun ReadChapter(
         .fillMaxSize()
         .customLongPressGesture(longPressDurationMillis = 1000L) {
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-            onShowReadMenu(
-                volume,
-                book,
-                chapter)
+            //onShowReadMenu(volume, book, chapter)
         }
     ) {
         val ensign = FontFamily(
@@ -1358,61 +1358,125 @@ fun ReadChapter(
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
 @OptIn(ExperimentalHorologistApi::class)
 @Composable
 fun ReadMenu(
     context: Context,
     settings: SharedPreferences,
-    volume: String,
-    book: String,
-    chapter: String,
+    volumeS: String,
+    bookS: String,
+    chapterS: String,
     onShowRead: (volume: String, books: String, chapter: String) -> Unit
 ) {
-    val columnState = rememberResponsiveColumnState(
-        contentPadding = ScalingLazyColumnDefaults.padding(
-            first = ItemType.Text,
-            last = ItemType.Text
-        ),
-        verticalArrangement = Arrangement.spacedBy(space = 0.dp, alignment = Alignment.Top),
-    )
-    ScreenScaffold(scrollState = columnState) {
-        ScalingLazyColumn(
-            columnState = columnState,
-            modifier = Modifier.fillMaxSize()
+    var volume by remember { mutableStateOf(volumeS) }
+    var book by remember { mutableStateOf(bookS) }
+    var chapter by remember { mutableStateOf(chapterS) }
+    var screenToggle by remember { mutableStateOf(false) }
+    val nextChapterId = getJson(context, "$.nextChapterId", "$volume/$book/$chapter.json", 0).toString()
+    val prevChapterId = getJson(context, "$.prevChapterId", "$volume/$book/$chapter.json", 0).toString()
+    val nextChapterPath = getJson(context, "$.$nextChapterId.path", "search.json", 0).toString()
+    val prevChapterPath = getJson(context, "$.$prevChapterId.path", "search.json", 0).toString()
+    val type = getJson(
+        context,
+        "$.chapter.delineation",
+        "$volume/$book/$chapter.json",
+        0
+    ).toString()
+//    val number = getJson(
+//        context,
+//        "$.chapter.number",
+//        "$volume/$book/$chapter.json",
+//        1
+//    ).toString().toInt()
+    val chapterTitle = if (type == "Page") {
+        getJson(context, "$.chapter.title", "$volume/$book/$chapter.json", 0).toString()
+    } else {
+        getJson(context, "$.chapter.bookTitle", "$volume/$book/$chapter.json", 0).toString() + " " + getJson(context, "$.chapter.number", "$volume/$book/$chapter.json", 1).toString()
+    }
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            item {
-
-            }
-        }
-        val scrollState = rememberScrollableState { delta ->
-            if (abs(delta) > 0) {
-                val nextChapterId = getJson(context, "$.nextChapterId", "$volume/$book/$chapter.json", 0).toString()
-                val prevChapterId = getJson(context, "$.prevChapterId", "$volume/$book/$chapter.json", 0).toString()
-                val nextChapterPath = getJson(context, "$.$nextChapterId.path", "search.json", 0).toString()
-                val prevChapterPath = getJson(context, "$.$prevChapterId.path", "search.json", 0).toString()
-                var newLocation = nextChapterPath.split("/")
-                if (delta > 0) {
-                    newLocation = prevChapterPath.split("/")
-                }
-                var newVolume = ""
-                var newBook = ""
-                var newChapter = ""
-                for (i in newLocation.indices) {
-                    when (i) {
-                        0 -> {
-                            newVolume = newLocation[i]
-                        }
-                        1 -> {
-                            newBook = newLocation[i]
-                        }
-                        2 -> {
-                            newChapter = newLocation[i]
+            Text(text = chapterTitle, fontSize = 18.sp, modifier = Modifier.padding(top = 36.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Button(
+                    modifier = Modifier
+                        .padding(horizontal = 5.dp),
+                    buttonSize = ButtonSize.Small,
+                    imageVector = Icons.Default.ChevronLeft,
+                    contentDescription = "Left",
+                    colors = ButtonDefaults.secondaryButtonColors(),
+                    onClick = {
+                        val newLocation = prevChapterPath.split("/")
+                        for (i in newLocation.indices) {
+                            when (i) {
+                                0 -> {
+                                    volume = newLocation[i]
+                                }
+                                1 -> {
+                                    book = newLocation[i]
+                                }
+                                2 -> {
+                                    chapter = newLocation[i]
+                                }
+                            }
                         }
                     }
-                }
-                onShowRead(newVolume, newBook, newChapter)
+                )
+                Button(
+                    modifier = Modifier
+                        .padding(horizontal = 5.dp),
+                    buttonSize = ButtonSize.Small,
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = "Right",
+                    colors = ButtonDefaults.secondaryButtonColors(),
+                    onClick = {
+                        val newLocation = nextChapterPath.split("/")
+                        for (i in newLocation.indices) {
+                            when (i) {
+                                0 -> {
+                                    volume = newLocation[i]
+                                }
+                                1 -> {
+                                    book = newLocation[i]
+                                }
+                                2 -> {
+                                    chapter = newLocation[i]
+                                }
+                            }
+                        }
+                    }
+                )
             }
-            delta
+            Button(
+                buttonSize = ButtonSize.Small,
+                imageVector = Icons.Default.Check,
+                contentDescription = "OK",
+                colors = ButtonDefaults.primaryButtonColors(),
+                onClick = {
+                    onShowRead(volume, book, chapter)
+                }
+            )
+            Icon(imageVector = Icons.Default.WatchOff, contentDescription = "Screen")
+            Switch(
+                checked = screenToggle,
+                onCheckedChange = {
+                    screenToggle = it
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colors.primary
+                )
+            )
         }
     }
 }
@@ -1448,7 +1512,7 @@ fun ShowFootnote(
             item {
                 Text(
                     modifier = Modifier
-                        .align(Alignment.TopCenter)
+                        .align(Alignment.Center)
                         .padding(top = 15.dp),
                     text = title,
                     fontSize = 18.sp,
