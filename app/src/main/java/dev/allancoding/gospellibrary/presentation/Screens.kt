@@ -96,6 +96,7 @@ import com.google.android.horologist.compose.material.ListHeaderDefaults.firstIt
 import com.google.android.horologist.compose.material.ResponsiveListHeader
 import com.google.android.horologist.compose.material.ToggleChip
 import com.google.android.horologist.compose.material.ToggleChipToggleControl
+import com.google.android.horologist.images.base.paintable.ImageVectorPaintable
 import dev.allancoding.gospellibrary.R
 
 
@@ -1594,7 +1595,7 @@ fun ListSettingsScreen(
                         settingsSetValue(settings, "footnote", isChecked)
                     },
                     toggleControl = ToggleChipToggleControl.Switch,
-                    icon = Icons.AutoMirrored.Filled.Notes
+                    icon = ImageVectorPaintable(Icons.AutoMirrored.Filled.Notes)
                 )
             }
             item {
@@ -1626,7 +1627,7 @@ fun ListSettingsScreen(
                             if (isChecked) Icons.Default.GridOn else Icons.AutoMirrored.Filled.List
                     },
                     toggleControl = ToggleChipToggleControl.Switch,
-                    icon = icon
+                    icon = ImageVectorPaintable(icon)
                 )
             }
             item {
@@ -1648,7 +1649,7 @@ fun ListSettingsScreen(
                         settingsSetValue(settings, "screen", isChecked)
                     },
                     toggleControl = ToggleChipToggleControl.Switch,
-                    icon = Icons.Default.WatchOff
+                    icon = ImageVectorPaintable(Icons.Default.WatchOff)
                 )
             }
             item {

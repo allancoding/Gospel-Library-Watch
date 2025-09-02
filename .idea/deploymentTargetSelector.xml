@@ -2,9 +2,9 @@
 <project version="4">
   <component name="deploymentTargetSelector">
     <selectionStates>
-      <SelectionState runConfigName="app">
+      <SelectionState runConfigName="Gospel Library">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-01-06T19:13:10.398320023Z">
+        <DropdownSelection timestamp="2025-09-02T19:26:23.321367078Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="LocalEmulator" identifier="path=/home/alniles07/.android/avd/Wear_OS_Large_Round_API_33.avd" />

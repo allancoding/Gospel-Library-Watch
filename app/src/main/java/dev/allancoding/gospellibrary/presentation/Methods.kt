@@ -3,7 +3,6 @@ package dev.allancoding.gospellibrary.presentation
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.net.Uri
 import android.util.Log
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -45,7 +44,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -56,6 +54,9 @@ import java.net.URL
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.concurrent.thread
+import androidx.core.net.toUri
+import androidx.core.content.edit
+import kotlinx.coroutines.guava.await
 
 fun getOfTheDay(sharedPreferences: SharedPreferences, context: Context, callback: () -> Unit) {
     CoroutineScope(Dispatchers.IO).launch {
@@ -148,7 +149,7 @@ fun settingsGetValue(sharedPreferences: SharedPreferences, key: String, defaultV
 }
 
 fun settingsSetValue(sharedPreferences: SharedPreferences, key: String, value: Any) {
-    sharedPreferences.edit().putString(key, value.toString()).apply()
+    sharedPreferences.edit { putString(key, value.toString()) }
 }
 
 fun getJson(context: Context, path: String, file: String, type: Int): Any? {
@@ -182,43 +183,73 @@ fun getJson(context: Context, path: String, file: String, type: Int): Any? {
 }
 
 fun getQuoteOfTheDay(context: Context): Map<String, String>? {
-    val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-    val jsonText = File(context.filesDir, "quotes.json").readText()
-    val path = "$[*]"
-    val verses: List<Map<String, String>> = JsonPath.parse(jsonText).read(path)
-    return verses.find { it["date"] == date }
+    return runCatching {
+        val file = File(context.filesDir, "quotes.json")
+        if (!file.exists()) {
+            Log.d("OfTheDay", "quotes.json not found; returning null")
+            return null
+        }
+        val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        val jsonText = file.readText()
+        val path = "$[*]"
+        val verses: List<Map<String, String>> = JsonPath.parse(jsonText).read(path)
+        verses.find { it["date"] == date }
+    }.getOrElse {
+        Log.w("OfTheDay", "Failed to read quotes.json: ${it.message}")
+        null
+    }
 }
 
 fun getVerseOfTheDay(context: Context): Map<String, String>? {
-    val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-    val jsonText = File(context.filesDir, "verses.json").readText()
-    val path = "$[*]"
-    val verses: List<Map<String, String>> = JsonPath.parse(jsonText).read(path)
-    return verses.find { it["date"] == date }
+    return runCatching {
+        val file = File(context.filesDir, "verses.json")
+        if (!file.exists()) {
+            Log.d("OfTheDay", "verses.json not found; returning null")
+            return null
+        }
+        val date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        val jsonText = file.readText()
+        val path = "$[*]"
+        val verses: List<Map<String, String>> = JsonPath.parse(jsonText).read(path)
+        verses.find { it["date"] == date }
+    }.getOrElse {
+        Log.w("OfTheDay", "Failed to read verses.json: ${it.message}")
+        null
+    }
 }
 
 fun saveQuoteImageList(context: Context) {
     thread(start = true) {
-        val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
-        val date = LocalDate.now().format(dateFormatter)
+        val quotesFile = File(context.filesDir, "quotes.json")
+        if (!quotesFile.exists()) {
+            Log.d("ImageCache", "quotes.json not found; skipping image prefetch")
+            return@thread
+        }
+        try {
+            val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+            val date = LocalDate.now().format(dateFormatter)
 
-        val jsonText = File(context.filesDir, "quotes.json").readText()
-        val jsonArray = JSONArray(jsonText)
+            val jsonText = quotesFile.readText()
+            val jsonArray = JSONArray(jsonText)
 
-        for (i in 0 until jsonArray.length()) {
-            val obj = jsonArray.getJSONObject(i)
-            val objDate = LocalDate.parse(obj.getString("date"), dateFormatter)
-            if (objDate.isAfter(LocalDate.parse(date, dateFormatter)) || objDate.isEqual(LocalDate.parse(date, dateFormatter))) {
-                try {
-                    val imageUrl = obj.getString("imageAssetId")
-                    val dateUrl = obj.getString("date")
-                    prefetchImage(context, "https://www.churchofjesuschrist.org/imgs/$imageUrl/full/%21500%2C/0/default", dateUrl)
-                } catch (e: Exception) {
-                    println("No Image for quote $objDate")
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val objDate = LocalDate.parse(obj.getString("date"), dateFormatter)
+                if (objDate.isAfter(LocalDate.parse(date, dateFormatter)) || objDate.isEqual(LocalDate.parse(date, dateFormatter))) {
+                    try {
+                        val imageUrl = obj.getString("imageAssetId")
+                        val dateUrl = obj.getString("date")
+                        prefetchImage(context, "https://www.churchofjesuschrist.org/imgs/$imageUrl/full/%21500%2C/0/default", dateUrl)
+                    } catch (_: Exception) {
+                        println("No Image for quote $objDate")
+                    }
                 }
             }
+        } catch (e: Exception) {
+            Log.w("ImageCache", "Failed to prefetch images: ${e.message}")
+        } finally {
+            removeExpiredCache(context)
         }
-        removeExpiredCache(context)
     }
 }
 
@@ -227,7 +258,7 @@ fun openUrlOnPhone(context: Context, url: String, callback: (Boolean) -> Unit) {
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                data = Uri.parse(url)
+                data = url.toUri()
                 addCategory(Intent.CATEGORY_BROWSABLE)
             }
             remoteActivityHelper.startRemoteActivity(intent).await()
@@ -274,7 +305,7 @@ fun isImageCached(context: Context, imageUrl: String): Boolean {
 fun markImageAsCached(context: Context, imageUrl: String, date: String) {
     Log.d("ImageCache", "Marking image as cached: $imageUrl")
     val prefs = context.getSharedPreferences("image_cache", Context.MODE_PRIVATE)
-    prefs.edit().putString(imageUrl, date).apply()
+    prefs.edit { putString(imageUrl, date) }
 }
 
 fun removeExpiredCache(context: Context) {
@@ -282,10 +313,20 @@ fun removeExpiredCache(context: Context) {
     val currentDate = LocalDate.now()
     val cachedImages = prefs.all
     cachedImages.forEach { (imageUrl, cachedDateString) ->
-        val cachedDate = LocalDate.parse(cachedDateString as String)
-        if (cachedDate.isBefore(currentDate)) {
-            prefs.edit().remove(imageUrl).apply()
+        val dateString = cachedDateString as? String ?: run {
+            prefs.edit { remove(imageUrl) }
+            return@forEach
         }
+        runCatching { LocalDate.parse(dateString) }
+            .onSuccess { cachedDate ->
+                if (cachedDate.isBefore(currentDate)) {
+                    prefs.edit { remove(imageUrl) }
+                }
+            }
+            .onFailure {
+                // If parsing fails, remove the bad entry
+                prefs.edit { remove(imageUrl) }
+            }
     }
 }
 
