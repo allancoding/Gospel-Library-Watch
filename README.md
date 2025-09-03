@@ -24,4 +24,5 @@ The scriptures are used from this repository: https://github.com/allancoding/scr
 ## Installation
 
 You need to build the APP in Android Studio and install it on your watch using android debugging tools.
-Or you can download the APK from the releases page and install it on your watch using adb.
+Or you can download the APK from the [releases](https://github.com/allancoding/Gospel-Library-Watch/releases/latest) page and install it on your watch using adb.
+You can also try googlr play: https://play.google.com/apps/testing/dev.allancoding.gospellibrary
