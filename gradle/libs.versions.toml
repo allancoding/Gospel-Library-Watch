@@ -1,10 +1,10 @@
 [versions]
-agp = "8.12.2"
-kotlin = "2.2.10"
-playServicesWearable = "19.0.0"
-composeBom = "2025.08.01"
-tiles = "1.5.0"
-tilesMaterial = "1.5.0"
+agp = "9.2.1"
+kotlin = "2.3.21"
+playServicesWearable = "20.0.1"
+composeBom = "2026.05.01"
+tiles = "1.6.0"
+tilesMaterial = "1.6.0"
 horologistComposeTools = "0.7.15"
 horologistTiles = "0.7.15"
 horologistComposables = "0.7.15"
@@ -12,12 +12,12 @@ horologistComposeLayout = "0.7.15"
 horologistComposeMaterial = "0.7.15"
 materialIconsExtended = "1.7.8"
 preferenceKtx = "1.2.1"
-jsonPath = "2.9.0"
-coreSplashscreenVersion = "1.2.0-rc01"
-foundation = "1.9.0"
-wearRemoteInteractions = "1.1.0"
+jsonPath = "3.0.0"
+coreSplashscreenVersion = "1.2.0"
+foundation = "1.11.2"
+wearRemoteInteractions = "1.2.0"
 coilCompose = "2.7.0"
-kotlinxCoroutinesGuava = "1.10.2"
+kotlinxCoroutinesGuava = "1.11.0"
 
 [libraries]
 play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
@@ -25,9 +25,9 @@ compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = 
 ui = { group = "androidx.compose.ui", name = "ui" }
 ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version = "1.9.0" }
-compose-material = { group = "androidx.wear.compose", name = "compose-material", version = "1.5.0" }
-compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version = "1.5.0" }
+ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version = "1.11.2" }
+compose-material = { group = "androidx.wear.compose", name = "compose-material", version = "1.6.2" }
+compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version = "1.6.2" }
 tiles = { group = "androidx.wear.tiles", name = "tiles", version.ref = "tiles" }
 tiles-material = { group = "androidx.wear.tiles", name = "tiles-material", version.ref = "tilesMaterial" }
 horologist-compose-tools = { group = "com.google.android.horologist", name = "horologist-compose-tools", version.ref = "horologistComposeTools" }
@@ -38,7 +38,7 @@ horologist-compose-material = { group = "com.google.android.horologist", name = 
 material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version.ref = "materialIconsExtended" }
 preference-ktx = { group = "androidx.preference", name = "preference-ktx", version.ref = "preferenceKtx" }
 json-path = { group = "com.jayway.jsonpath", name = "json-path", version.ref = "jsonPath" }
-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version = "2.9.3" }
+navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version = "2.9.8" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreenVersion" }
 androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 androidx-wear-remote-interactions = { group = "androidx.wear", name = "wear-remote-interactions", version.ref = "wearRemoteInteractions" }
@@ -47,6 +47,5 @@ kotlinx-coroutines-guava = { group = "org.jetbrains.kotlinx", name = "kotlinx-co
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
-jetbrainsKotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinCompose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 
