@@ -1,4 +1,4 @@
-# Gospel Library For WatchOS
+# Gospel Library for WatchOS
 
 This is a WatchOS app that allows you to read the scriptures on your Android Wear device. It does not require an Android phone to work. It is a standalone app that can be installed directly on your watch.
 
@@ -23,6 +23,9 @@ The scriptures are used from this repository: https://github.com/allancoding/scr
 
 ## Installation
 
-You need to build the APP in Android Studio and install it on your watch using android debugging tools.
-Or you can download the APK from the [releases](https://github.com/allancoding/Gospel-Library-Watch/releases/latest) page and install it on your watch using adb.
-You can also try googlr play: https://play.google.com/apps/testing/dev.allancoding.gospellibrary
+#### - You can build the APP in Android Studio and install it on your watch using android debugging tools.
+#### - Or you can download the APK from the [releases](https://github.com/allancoding/Gospel-Library-Watch/releases/latest) page and install it on your watch using adb.
+#### - You can also install from google play:
+1. Sign up here: https://forms.gle/RPNhdLcRDnDQa9on8
+2. After rreceiving the acceptance email finish signing up here: https://play.google.com/apps/testing/dev.allancoding.gospellibrary
+3. Install: https://play.google.com/store/apps/details?id=dev.allancoding.gospellibrary
