@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "dev.allancoding.gospellibrary"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.allancoding.gospellibrary"
